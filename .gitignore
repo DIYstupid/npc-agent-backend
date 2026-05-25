@@ -12,6 +12,7 @@ htmlcov/
 
 .codegraph/
 .vscode/
+docs/
 *.log
 
 app/data/*.db
@@ -21,6 +22,7 @@ app/data/*.sqlite3
 app/data/chroma/
 
 tests/.tmp/
+eval/.tmp/
 
 clients/qt-debug-console/out/
 clients/qt-debug-console/build/

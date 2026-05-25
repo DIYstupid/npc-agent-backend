@@ -1,0 +1,118 @@
+{
+  "passed": true,
+  "metrics": {
+    "total_cases": 3,
+    "passed_cases": 3,
+    "pass_rate": 1.0,
+    "error_rate": 0.0,
+    "tool_call_accuracy": 1.0,
+    "rag_hit_rate": 1.0,
+    "quest_success_rate": 1.0,
+    "avg_latency_ms": 12.33,
+    "p95_latency_ms": 20,
+    "avg_prompt_tokens": 864.67,
+    "total_prompt_tokens": 2594
+  },
+  "cases": [
+    {
+      "case_id": "create_silver_ore_quest",
+      "passed": true,
+      "failures": [],
+      "latency_ms": 20,
+      "expected_tools": [
+        "create_quest",
+        "update_relationship"
+      ],
+      "actual_tools": [
+        "create_quest",
+        "update_relationship"
+      ],
+      "executed_tools": [
+        "create_quest",
+        "update_relationship"
+      ],
+      "expected_knowledge_hit": false,
+      "rag_hit": false,
+      "citations": [],
+      "expected_quest_state": {
+        "active": [
+          "find_silver_ore"
+        ],
+        "completed": []
+      },
+      "actual_quest_state": {
+        "active": [
+          "find_silver_ore",
+          "investigate_wolves"
+        ],
+        "completed": []
+      },
+      "reply": "Bring me silver ore and I will repair the old sword.",
+      "token_estimate": 839,
+      "trace_id": "b09ad9b8-029a-4e2b-bf9a-a86dfd58c1d6",
+      "error": null
+    },
+    {
+      "case_id": "answer_moonwell_from_rag",
+      "passed": true,
+      "failures": [],
+      "latency_ms": 10,
+      "expected_tools": [],
+      "actual_tools": [],
+      "executed_tools": [],
+      "expected_knowledge_hit": true,
+      "rag_hit": true,
+      "citations": [
+        {
+          "chunk_id": "moonwell_lore:0000",
+          "doc_id": "moonwell_lore",
+          "source": "eval/moonwell_lore.md",
+          "page": 0,
+          "heading": "Moonwell Lore",
+          "score": 0.521981
+        }
+      ],
+      "expected_quest_state": {
+        "active": [],
+        "completed": []
+      },
+      "actual_quest_state": {
+        "active": [
+          "investigate_wolves"
+        ],
+        "completed": []
+      },
+      "reply": "The moonwell opens only when the silver bell rings.",
+      "token_estimate": 908,
+      "trace_id": "f9b8d3bd-2b7b-4c4e-801a-28e99f718f3a",
+      "error": null
+    },
+    {
+      "case_id": "small_talk_no_tool",
+      "passed": true,
+      "failures": [],
+      "latency_ms": 7,
+      "expected_tools": [],
+      "actual_tools": [],
+      "executed_tools": [],
+      "expected_knowledge_hit": false,
+      "rag_hit": false,
+      "citations": [],
+      "expected_quest_state": {
+        "active": [],
+        "completed": []
+      },
+      "actual_quest_state": {
+        "active": [
+          "investigate_wolves"
+        ],
+        "completed": []
+      },
+      "reply": "The village gate is quiet, but the guard is watching the road.",
+      "token_estimate": 847,
+      "trace_id": "85b36f21-e377-46c6-adad-b4dd6f413cb3",
+      "error": null
+    }
+  ],
+  "failed_cases": []
+}
