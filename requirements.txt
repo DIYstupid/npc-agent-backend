@@ -1,0 +1,11 @@
+fastapi
+uvicorn[standard]
+pydantic
+python-dotenv
+openai
+redis
+chromadb
+sentence-transformers
+tiktoken
+langgraph
+langgraph-checkpoint-sqlite
