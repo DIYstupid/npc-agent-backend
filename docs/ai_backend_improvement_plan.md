@@ -387,3 +387,77 @@ AI 应用版简历表达：
 如果只投 AI 应用，优先 Phase 3、4、5、7。
 
 如果同时投后端，优先 Phase 1、2、6、7。
+
+## 12. 当前执行进度
+
+更新时间：2026-05-25
+
+已完成：
+
+- 已新增 `docs/api_contract.md`，固化当前 Python Agent Runtime 的核心 HTTP / SSE 契约：
+  - `GET /health`
+  - `GET /npcs`
+  - `GET /game/state/{player_id}`
+  - `POST /chat/{npc_id}`
+  - `POST /chat/{npc_id}/stream`
+  - `GET/POST /memory/long-term`
+  - `GET/POST /knowledge/events`
+  - `POST /world/interactions`
+  - `GET /debug/traces`
+- 已记录 SSE 契约：
+  - 正常事件顺序：`start -> delta* -> final`
+  - 流内异常事件：`error`
+  - 流开始前异常仍使用统一 JSON error envelope
+- 已确认项目 Python 环境：
+  - `D:\mincondapy39\envs\agent\python.exe`
+- 已用上述 Python 环境完成 Phase 0 基线验证：
+  - `D:\mincondapy39\envs\agent\python.exe -m compileall app tests scripts`：通过
+  - `D:\mincondapy39\envs\agent\python.exe -m unittest discover -s tests -v`：通过，43 tests OK
+  - `D:\mincondapy39\envs\agent\python.exe scripts\eval_memory_behavior.py`：通过，`passed=true`
+- 已确认 Go 工具链可用：
+  - `go version`：`go1.26.3 windows/amd64`
+- 已新增 `services/go-api/`，完成 Phase 1 Go API Service MVP：
+  - 初始化 Go module：`npc-agent-backend/services/go-api`
+  - 使用 Gin 搭建 HTTP 服务入口
+  - 新增配置读取：`GO_API_ADDR`、`PYTHON_RUNTIME_BASE_URL`、`REQUEST_TIMEOUT_MS`、`REDIS_ADDR`
+  - 新增结构化 JSON logger
+  - 新增中间件：recover、request_id、access log、timeout
+  - 新增 Python Agent Runtime HTTP client
+  - 新增 `GET /health`，返回 Go 服务状态、Python Runtime 健康状态和 Redis 健康状态
+  - 新增 `services/go-api/README.md`，记录配置、启动、测试和代理请求示例
+- 已完成 Phase 2 第一版代理能力：
+  - `POST /chat/{npc_id}` 透传代理到 Python Runtime
+  - `POST /chat/{npc_id}/stream` 透传 Python SSE 输出
+  - Go 侧生成或透传 `X-Request-ID`，并转发给 Python Runtime
+  - Python Runtime 调用失败返回明确 JSON error envelope
+  - Python Runtime 超时返回 `504 python_runtime_timeout`
+- 已新增 Go 单元测试，覆盖配置、Python health client、HTTP chat 代理和 SSE 代理：
+  - `go mod tidy`：通过（默认 Go proxy 超时后使用 `GOPROXY=https://goproxy.cn,direct`）
+  - `go test ./...`：通过
+- 已推进 Phase 7 文档材料：
+  - 更新根目录 `readme.md`，补充 Go + Python 架构图、Go API Service 启动方式、Demo 场景、API 列表和 Go 测试命令
+  - 更新 `.env.example`，补充 `GO_API_ADDR`、`PYTHON_RUNTIME_BASE_URL`、`REQUEST_TIMEOUT_MS`、`REDIS_ADDR`
+  - 新增 `docs/go_python_gateway_notes.md`，整理 Go + Python 拆分、LLM 状态隔离、SSE 最终一致性和 Python Runtime 失败处理的面试讲解
+
+当前状态：
+
+- Phase 0 已完成。
+- Phase 1 已完成。
+- Phase 2 第一版已完成，Go 已具备同步聊天和 SSE 流式聊天代理能力。
+- Phase 7 文档主体已补充；Demo 截图仍未补充。
+- Redis 已接入 Go `/health` 健康检查；Phase 6 中的 Redis 限流、缓存和完整部署仍未完成。
+- 当前没有改动 Python 业务行为，Go 侧作为新增服务入口存在。
+
+下次继续建议：
+
+1. 启动 Python Runtime 后，再启动 Go API Service，做一次真实端到端手测：
+   - `GET /health`
+   - `POST /chat/{npc_id}`
+   - `POST /chat/{npc_id}/stream`
+2. 补 Phase 7 Demo 截图或录屏素材：
+   - SSE 流式聊天
+   - Trace 面板
+   - RAG 来源引用
+   - Tool 执行结果
+3. 进入 Phase 3，补完整 RAG 文档导入、chunk、检索、引用和 Trace 展示链路。
+4. 进入 Phase 6，继续补 Redis 限流、Docker Compose、metrics 和 pprof。

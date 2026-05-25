@@ -4,6 +4,7 @@
 
 ## 当前能力
 
+- Go API Service 网关入口：统一 `request_id`、超时控制、panic recovery、access log、健康检查和 Python Runtime 代理
 - FastAPI NPC 聊天接口（同步 + SSE 流式，二者共用 `ChatPipeline` 三阶段域逻辑）
 - SSE 聊天流式响应，支持客户端逐字渲染
 - 玩家状态与任务持久化（SQLite）
@@ -21,7 +22,35 @@
 - LLM：`MockLLMClient` 离线 或 `OpenAICompatibleLLMClient`（任意 OpenAI 兼容 API，含 DeepSeek 等）
 - `unittest` 43 个测试 + 行为评估脚本 + Qt 客户端 4 个 C++ 测试
 
+## 架构
+
+```text
+Qt Debug Console / Future Client
+        |
+        v
+Go API Service
+  - HTTP / SSE 统一入口
+  - request_id / timeout / recover / access log
+  - Python Runtime 和 Redis 健康检查
+        |
+        v
+Python Agent Runtime
+  - FastAPI API
+  - ChatPipeline / LangGraph QuestAgent / WorldAgent
+  - Chroma 长期记忆、Prompt Trace、ToolService、WorldActionService
+```
+
+当前拆分原则是：Go 负责后端工程化入口和跨服务控制，Python 保留 Agent、Prompt、RAG/Memory、LLM 和状态机业务逻辑。
+
 ## 主要接口
+
+Go API Service 当前对外暴露：
+
+- `GET /health`
+- `POST /chat/{npc_id}`
+- `POST /chat/{npc_id}/stream`
+
+Python Agent Runtime 暴露完整业务接口：
 
 - `GET /health`
 - `GET /npcs`
@@ -64,7 +93,7 @@ docker compose -p npc-agent-backend -f docker-compose.redis.yml up -d redis
 
 这会生成带项目名前缀的容器和网络，便于和其他本地项目隔离。
 
-## 本地运行
+## 本地运行 Python Runtime
 
 ```powershell
 python -m venv .venv
@@ -75,6 +104,61 @@ uvicorn app.main:app --reload
 
 如果只想离线调试，把 `LLM_PROVIDER=mock` 写进 `.env`。
 
+## 本地运行 Go API Service
+
+先启动 Python Runtime 和 Redis，然后启动 Go 网关：
+
+```powershell
+cd services/go-api
+go mod tidy
+go run ./cmd/api
+```
+
+默认配置：
+
+- Go API：`http://127.0.0.1:8080`
+- Python Runtime：`http://127.0.0.1:8000`
+- Redis：`127.0.0.1:6379`
+
+Go 健康检查：
+
+```powershell
+curl http://127.0.0.1:8080/health
+```
+
+通过 Go 代理同步聊天：
+
+```powershell
+curl -X POST http://127.0.0.1:8080/chat/blacksmith_001 `
+  -H "Content-Type: application/json" `
+  -d "{\"player_id\":\"player_001\",\"message\":\"Any news about the wolves?\"}"
+```
+
+通过 Go 代理 SSE 流式聊天：
+
+```powershell
+curl -N -X POST http://127.0.0.1:8080/chat/blacksmith_001/stream `
+  -H "Content-Type: application/json" `
+  -d "{\"player_id\":\"player_001\",\"message\":\"Any news about the wolves?\"}"
+```
+
+常用环境变量：
+
+- `GO_API_ADDR`
+- `PYTHON_RUNTIME_BASE_URL`
+- `REQUEST_TIMEOUT_MS`
+- `REDIS_ADDR`
+
+## Demo 场景
+
+推荐演示路径：
+
+1. 启动 Redis、Python Runtime 和 Go API Service。
+2. 打开 Qt Debug Console 或直接调用 Go `POST /chat/{npc_id}/stream`。
+3. 发送关于狼群、任务或 NPC 情报的问题，观察 SSE `start -> delta* -> final`。
+4. 查看 `GET /debug/traces/latest`，确认 prompt context、actions、executed_actions 和 token budget。
+5. 调用 `GET /game/state/{player_id}` 或知识库接口，验证工具执行和共享情报写入结果。
+
 ## 测试
 
 后端测试：
@@ -82,6 +166,13 @@ uvicorn app.main:app --reload
 ```powershell
 python -m unittest discover -s tests -v
 python scripts/eval_memory_behavior.py
+```
+
+Go 网关测试：
+
+```powershell
+cd services/go-api
+go test ./...
 ```
 
 SSE 聊天流测试覆盖：
@@ -96,6 +187,9 @@ Qt 客户端测试命令见 [clients/qt-debug-console/README.md](clients/qt-debu
 ## 文档
 
 - [docs/current_project_record.md](docs/current_project_record.md)：最新项目状态记录（推荐入口）
+- [docs/ai_backend_improvement_plan.md](docs/ai_backend_improvement_plan.md)：AI 应用与后端工程化改造计划
+- [docs/api_contract.md](docs/api_contract.md)：Python Agent Runtime API/SSE 契约
+- [docs/go_python_gateway_notes.md](docs/go_python_gateway_notes.md)：Go + Python 服务拆分面试讲解
 - [docs/project_handoff_overview.md](docs/project_handoff_overview.md)：项目接手总览
 - [docs/interview_qa_full.md](docs/interview_qa_full.md)：完整版面试问答与八股要点
 - [docs/interview_qa_phase1.md](docs/interview_qa_phase1.md)：阶段 1 面试问答
