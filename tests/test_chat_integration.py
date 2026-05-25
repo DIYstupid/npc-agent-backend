@@ -472,6 +472,7 @@ class ChatIntegrationTests(unittest.TestCase):
             trace_payload = trace_response.json()
             self.assertEqual(trace_payload["reply"], chat_payload["reply"])
             self.assertEqual(trace_payload["actions"][0]["tool"], "create_quest")
+            self.assertEqual(trace_payload["validated_actions"][0]["tool"], "create_quest")
 
         self.assertEqual(len(llm_client.prompts), 1)
         self.assertIn("My sword is broken.", llm_client.prompts[0])

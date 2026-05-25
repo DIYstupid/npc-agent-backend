@@ -21,6 +21,7 @@ class QuestAgentState(TypedDict, total=False):
     note: str | None
     objectives: list[dict]
     actions: list[AgentAction]
+    validated_actions: list[AgentAction]
     executed_actions: list[ToolExecutionResult]
     status: str
     message: str
@@ -117,15 +118,16 @@ class QuestAgent:
                 "message": f"Unsupported quest operation: {operation}",
             }
 
+        args = {"quest_id": quest_id}
+        if operation in {"create", "advance"}:
+            args["objectives"] = state.get("objectives", [])
+
         return {
             "operation": operation,
             "actions": [
                 AgentAction(
                     tool=tool,
-                    args={
-                        "quest_id": quest_id,
-                        "objectives": state.get("objectives", []),
-                    },
+                    args=args,
                 )
             ],
         }
@@ -137,12 +139,13 @@ class QuestAgent:
                 "executed_actions": [],
             }
 
-        executed_actions = self.tool_service.execute_actions(
+        action_execution = self.tool_service.execute_actions_with_validation(
             player_id=state["player_id"],
             actions=actions,
         )
         return {
-            "executed_actions": executed_actions,
+            "validated_actions": action_execution.validated_actions,
+            "executed_actions": action_execution.executed_actions,
         }
 
     async def _finalize(self, state: QuestAgentState) -> QuestAgentState:
@@ -168,6 +171,7 @@ class QuestAgent:
                 message=f"{state['operation']} quest {state['quest_id']}",
                 reply=message,
                 actions=state.get("actions", []),
+                validated_actions=state.get("validated_actions", []),
                 executed_actions=executed_actions,
                 elapsed_ms=elapsed_ms,
                 agent_state={

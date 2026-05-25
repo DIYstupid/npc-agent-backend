@@ -10,7 +10,7 @@ from app.schemas.game import PlayerState
 from app.schemas.llm import LLMChatResult
 from app.schemas.npc import NPCProfile
 from app.schemas.rag import RagCitation, RagDocumentChunk
-from app.schemas.tool import ToolExecutionResult
+from app.schemas.tool import ToolExecutionBatch, ToolExecutionResult
 from app.services.context_builder_service import (
     BuiltPromptContext,
     ContextBuilderService,
@@ -182,10 +182,11 @@ class ChatPipeline:
     ) -> ChatResponse:
         reply = generation.llm_result.reply
         actions = generation.llm_result.actions
-        executed_actions = self._execute_actions(
+        action_execution = self._execute_actions(
             player_state=pipeline_run.player_state,
             actions=actions,
         )
+        executed_actions = action_execution.executed_actions
 
         self._write_short_term_memory(
             pipeline_run=pipeline_run,
@@ -201,6 +202,7 @@ class ChatPipeline:
             pipeline_run=pipeline_run,
             reply=reply,
             actions=actions,
+            validated_actions=action_execution.validated_actions,
             executed_actions=executed_actions,
             error=generation.error_text,
         )
@@ -226,10 +228,26 @@ class ChatPipeline:
         self,
         player_state: PlayerState,
         actions: list[AgentAction],
-    ) -> list[ToolExecutionResult]:
-        return self.tool_service.execute_actions(
+    ) -> ToolExecutionBatch:
+        execute_with_validation = getattr(
+            self.tool_service,
+            "execute_actions_with_validation",
+            None,
+        )
+        if execute_with_validation is not None:
+            return execute_with_validation(
+                player_id=player_state.player_id,
+                actions=actions,
+            )
+
+        executed_actions = self.tool_service.execute_actions(
             player_id=player_state.player_id,
             actions=actions,
+        )
+        return ToolExecutionBatch(
+            raw_actions=list(actions),
+            validated_actions=list(actions),
+            executed_actions=executed_actions,
         )
 
     def _write_short_term_memory(
@@ -295,6 +313,7 @@ class ChatPipeline:
         pipeline_run: ChatPipelineRun,
         reply: str,
         actions: list[AgentAction],
+        validated_actions: list[AgentAction],
         executed_actions: list[ToolExecutionResult],
         error: str | None,
     ) -> None:
@@ -309,6 +328,7 @@ class ChatPipeline:
                 prompt=pipeline_run.built_context.prompt,
                 context_report=pipeline_run.built_context.report,
                 actions=actions,
+                validated_actions=validated_actions,
                 executed_actions=executed_actions,
                 selected_short_term_memory=pipeline_run.built_context.selected_short_term_memory,
                 selected_long_term_memory=pipeline_run.built_context.selected_long_term_memory,

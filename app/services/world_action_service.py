@@ -49,12 +49,15 @@ class WorldActionService:
         )
         if precondition_failure is not None:
             executed_actions = [precondition_failure]
+            validated_actions: list[AgentAction] = []
             action_success = False
         else:
-            executed_actions = self.tool_service.execute_actions(
+            action_execution = self.tool_service.execute_actions_with_validation(
                 player_id=request.player_id,
                 actions=planned_actions,
             )
+            validated_actions = action_execution.validated_actions
+            executed_actions = action_execution.executed_actions
             action_success = all(result.success for result in executed_actions) if executed_actions else True
 
         world_response = await self.world_agent.ainvoke(
@@ -95,6 +98,7 @@ class WorldActionService:
                 message=f"{action_type} {request.target_id or request.npc_id or request.location or ''}".strip(),
                 reply=message,
                 actions=planned_actions,
+                validated_actions=validated_actions,
                 executed_actions=executed_actions,
                 elapsed_ms=elapsed_ms,
                 agent_state={

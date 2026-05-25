@@ -2,7 +2,7 @@ from pydantic import BaseModel, Field
 
 from app.schemas.context import ContextReport
 from app.schemas.rag import RagCitation
-from app.schemas.tool import ToolExecutionResult
+from app.schemas.tool import AgentAction, ToolExecutionResult
 from app.schemas.validation import ChatText, ResourceId
 
 
@@ -18,17 +18,6 @@ class ChatMessage(BaseModel):
 
     role: str = Field(..., description="Message role, such as player or npc")
     content: str = Field(..., description="Message content")
-
-
-class AgentAction(BaseModel):
-    """Structured action emitted by the NPC agent."""
-
-    tool: str = Field(..., description="Tool name")
-    args: dict = Field(
-        default_factory=dict,
-        max_length=20,
-        description="Tool arguments",
-    )
 
 
 class ChatResponse(BaseModel):

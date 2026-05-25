@@ -11,8 +11,8 @@ Passed: `True`
 - Tool call accuracy: 100.00%
 - Quest success rate: 100.00%
 - Error rate: 0.00%
-- Avg latency ms: 12.33
-- P95 latency ms: 20
+- Avg latency ms: 11.67
+- P95 latency ms: 17
 - Avg prompt tokens: 864.67
 - Total prompt tokens: 2594
 
@@ -22,25 +22,25 @@ Passed: `True`
 
 - Passed: `True`
 - Failures: none
-- Trace ID: `b09ad9b8-029a-4e2b-bf9a-a86dfd58c1d6`
+- Trace ID: `353ee041-05c3-4c02-b1ab-ef239c78765d`
 - Actual tools: `['create_quest', 'update_relationship']`
 - RAG hit: `False`
-- Latency ms: 20
+- Latency ms: 17
 
 ### answer_moonwell_from_rag
 
 - Passed: `True`
 - Failures: none
-- Trace ID: `f9b8d3bd-2b7b-4c4e-801a-28e99f718f3a`
+- Trace ID: `812a50ba-d40b-4e77-a3b2-f187427cddad`
 - Actual tools: `[]`
 - RAG hit: `True`
-- Latency ms: 10
+- Latency ms: 9
 
 ### small_talk_no_tool
 
 - Passed: `True`
 - Failures: none
-- Trace ID: `85b36f21-e377-46c6-adad-b4dd6f413cb3`
+- Trace ID: `6f492a5e-bd8a-4421-8c51-cdee0ddb3744`
 - Actual tools: `[]`
 - RAG hit: `False`
-- Latency ms: 7
+- Latency ms: 9

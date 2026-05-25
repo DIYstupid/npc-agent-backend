@@ -18,6 +18,7 @@ class PromptTraceSummary(BaseModel):
     estimated_prompt_tokens: int
     estimated_saved_tokens: int
     actions_count: int
+    validated_actions_count: int = 0
     executed_actions_count: int
     elapsed_ms: int
     error: str | None = None
@@ -34,6 +35,7 @@ class PromptTraceRecord(BaseModel):
     prompt: str
     context_report: ContextReport
     actions: list[AgentAction] = Field(default_factory=list)
+    validated_actions: list[AgentAction] = Field(default_factory=list)
     executed_actions: list[ToolExecutionResult] = Field(default_factory=list)
     selected_short_term_memory: list[ChatMessage] = Field(default_factory=list)
     selected_long_term_memory: list[LongTermMemory] = Field(default_factory=list)

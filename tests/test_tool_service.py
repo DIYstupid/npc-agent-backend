@@ -1,3 +1,4 @@
+import json
 import unittest
 import uuid
 from pathlib import Path
@@ -5,6 +6,7 @@ from pathlib import Path
 from app.repositories.player_state_repository import PlayerStateRepository
 from app.repositories.shared_knowledge_repository import SharedKnowledgeRepository
 from app.schemas.chat import AgentAction
+from app.schemas.tool import agent_action_json_schema
 from app.services.game_service import GameService
 from app.services.shared_knowledge_service import SharedKnowledgeService
 from app.services.tool_service import ToolService
@@ -116,6 +118,62 @@ class ToolServiceTests(unittest.TestCase):
 
         self.assertFalse(result.success)
         self.assertEqual(result.data["status"], "not_allowed")
+
+    def test_agent_action_schema_lists_allowed_tool_contracts(self) -> None:
+        schema_text = json.dumps(agent_action_json_schema(), sort_keys=True)
+
+        for tool_name in self.tool_service.allowed_tools:
+            self.assertIn(tool_name, schema_text)
+        self.assertIn("quest_id", schema_text)
+        self.assertIn("item_id", schema_text)
+        self.assertIn("known_by_npc_ids", schema_text)
+
+    def test_invalid_args_are_rejected_before_state_mutation(self) -> None:
+        player_before = self.game_service.get_player_state("player_001")
+        result = self.tool_service.execute_action(
+            player_id="player_001",
+            action=AgentAction(tool="add_item", args={"item_id": ""}),
+        )
+        player_after = self.game_service.get_player_state("player_001")
+
+        self.assertFalse(result.success)
+        self.assertEqual(result.data["status"], "invalid_action")
+        self.assertEqual(player_after.inventory, player_before.inventory)
+
+    def test_wrong_arg_type_does_not_mutate_relationship(self) -> None:
+        player_before = self.game_service.get_player_state("player_001")
+        result = self.tool_service.execute_action(
+            player_id="player_001",
+            action=AgentAction(
+                tool="update_relationship",
+                args={"npc_id": "blacksmith_001", "delta": "many"},
+            ),
+        )
+        player_after = self.game_service.get_player_state("player_001")
+
+        self.assertFalse(result.success)
+        self.assertEqual(result.data["status"], "invalid_action")
+        self.assertEqual(player_after.relationships, player_before.relationships)
+
+    def test_batch_exposes_raw_validated_and_executed_actions(self) -> None:
+        batch = self.tool_service.execute_actions_with_validation(
+            player_id="player_001",
+            actions=[
+                AgentAction(tool="add_item", args={"item_id": "schema_item"}),
+                AgentAction(tool="remove_item", args={}),
+                AgentAction(tool="delete_player", args={}),
+            ],
+        )
+
+        self.assertEqual(len(batch.raw_actions), 3)
+        self.assertEqual(
+            [action.tool for action in batch.validated_actions],
+            ["add_item"],
+        )
+        self.assertEqual(
+            [result.data["status"] for result in batch.executed_actions],
+            ["added", "invalid_action", "not_allowed"],
+        )
 
     def test_publish_knowledge_creates_player_scoped_shared_event(self) -> None:
         result = self.tool_service.execute_action(

@@ -5,6 +5,7 @@ from openai import OpenAI
 from app.core.config import settings
 from app.schemas.chat import AgentAction
 from app.schemas.llm import LLMChatResult
+from app.schemas.tool import agent_action_json_schema
 
 class BaseLLMClient:
     """
@@ -275,70 +276,33 @@ class OpenAICompatibleLLMClient(BaseLLMClient):
         self.client.close()
 
     def _system_instruction(self) -> str:
-        return """
-你是一个游戏 NPC Agent 输出器。
+        action_schema = json.dumps(
+            agent_action_json_schema(),
+            ensure_ascii=False,
+            sort_keys=True,
+        )
+        return f"""
+You are a game NPC agent output adapter.
 
-你必须只输出 JSON，不要输出 Markdown，不要输出解释文字。
+Return only a JSON object. Do not return Markdown or explanatory text.
 
-输出格式必须是：
-
-{
-  "reply": "NPC 对玩家说的话",
+The output format must be:
+{{
+  "reply": "What the NPC says to the player",
   "actions": [
-    {
-      "tool": "工具名称",
-      "args": {}
-    }
+    {{
+      "tool": "tool_name",
+      "args": {{}}
+    }}
   ]
-}
+}}
 
-允许的工具只有：
-1. create_quest
-2. complete_quest
-3. add_item
-4. remove_item
-5. update_relationship
-6. set_world_flag
-
-工具参数要求：
-
-create_quest:
-{
-  "quest_id": "任务 ID"
-}
-
-complete_quest:
-{
-  "quest_id": "任务 ID"
-}
-
-add_item:
-{
-  "item_id": "物品 ID"
-}
-
-remove_item:
-{
-  "item_id": "物品 ID"
-}
-
-update_relationship:
-{
-  "npc_id": "NPC ID",
-  "delta": 关系变化数值
-}
-
-set_world_flag:
-{
-  "flag": "世界事件名称",
-  "value": true 或 false
-}
-
-规则：
-1. reply 必须保持 NPC 人设。
-2. 如果只是普通聊天，actions 必须是空数组。
-3. 不要使用不在白名单里的工具。
-4. 不要编造玩家背包里没有的物品。
-5. 不要重复创建玩家已经拥有的任务。
-6. 必须返回合法 JSON。
+Rules:
+1. Keep the reply consistent with the NPC persona and visible context.
+2. If the player is only chatting, return an empty actions array.
+3. Use only tools allowed by the AgentAction schema below.
+4. Do not invent player inventory, quest progress, or world state.
+5. Do not duplicate a state change that already appears completed in context.
+6. Every action must validate against this AgentAction JSON Schema:
+{action_schema}
 """.strip()

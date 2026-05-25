@@ -2,8 +2,10 @@ import unittest
 import uuid
 from pathlib import Path
 
+from app.schemas.chat import AgentAction
 from app.schemas.context import ContextReport
 from app.schemas.rag import RagDocumentChunk
+from app.schemas.tool import ToolExecutionResult
 from app.services.trace_service import TraceService
 
 
@@ -21,6 +23,28 @@ class TraceServiceTests(unittest.TestCase):
                 path.unlink()
 
     def test_save_and_read_prompt_trace(self) -> None:
+        raw_actions = [
+            AgentAction(tool="add_item", args={"item_id": "silver_ore"}),
+            AgentAction(tool="delete_player", args={}),
+        ]
+        validated_actions = [
+            AgentAction(tool="add_item", args={"item_id": "silver_ore"}),
+        ]
+        executed_actions = [
+            ToolExecutionResult(
+                tool="add_item",
+                success=True,
+                message="Item added: silver_ore",
+                data={"status": "added"},
+            ),
+            ToolExecutionResult(
+                tool="delete_player",
+                success=False,
+                message="Tool not allowed: delete_player",
+                data={"status": "not_allowed"},
+            ),
+        ]
+
         self.trace_service.save_chat_trace(
             request_id="trace_001",
             npc_id="blacksmith_001",
@@ -34,8 +58,9 @@ class TraceServiceTests(unittest.TestCase):
                 estimated_prompt_tokens=120,
                 estimated_saved_tokens=30,
             ),
-            actions=[],
-            executed_actions=[],
+            actions=raw_actions,
+            validated_actions=validated_actions,
+            executed_actions=executed_actions,
             selected_short_term_memory=[],
             selected_long_term_memory=[],
             selected_rag_chunks=[
@@ -57,9 +82,15 @@ class TraceServiceTests(unittest.TestCase):
 
         self.assertIsNotNone(trace)
         self.assertEqual(trace.request_id, "trace_001")
+        self.assertEqual([action.tool for action in trace.actions], ["add_item", "delete_player"])
+        self.assertEqual([action.tool for action in trace.validated_actions], ["add_item"])
+        self.assertEqual(trace.executed_actions[1].data["status"], "not_allowed")
         self.assertEqual(trace.selected_rag_chunks[0].source, "docs/rag.md")
         self.assertEqual(latest.request_id, "trace_001")
         self.assertEqual(len(summaries), 1)
+        self.assertEqual(summaries[0].actions_count, 2)
+        self.assertEqual(summaries[0].validated_actions_count, 1)
+        self.assertEqual(summaries[0].executed_actions_count, 2)
         self.assertEqual(summaries[0].estimated_prompt_tokens, 120)
 
     def test_save_and_read_agent_trace(self) -> None:

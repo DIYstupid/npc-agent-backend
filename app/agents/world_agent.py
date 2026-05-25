@@ -40,6 +40,7 @@ class WorldAgentState(TypedDict, total=False):
     tags: list[str]
     world_flags: dict[str, bool]
     actions: list[AgentAction]
+    validated_actions: list[AgentAction]
     executed_actions: list[ToolExecutionResult]
     event: KnowledgeEvent | None
     status: str
@@ -565,13 +566,14 @@ class WorldAgent:
             )
             for flag, value in flags.items()
         ]
-        executed_actions = self.tool_service.execute_actions(
+        action_execution = self.tool_service.execute_actions_with_validation(
             player_id=player_id,
             actions=actions,
         )
         return {
             "actions": actions,
-            "executed_actions": executed_actions,
+            "validated_actions": action_execution.validated_actions,
+            "executed_actions": action_execution.executed_actions,
         }
 
     async def _finalize(self, state: WorldAgentState) -> WorldAgentState:
@@ -595,6 +597,7 @@ class WorldAgent:
                 message=state["text"],
                 reply=message,
                 actions=state.get("actions", []),
+                validated_actions=state.get("validated_actions", []),
                 executed_actions=executed_actions,
                 elapsed_ms=elapsed_ms,
                 agent_state={

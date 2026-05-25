@@ -1,7 +1,13 @@
 import inspect
 
+from pydantic import ValidationError
+
 from app.schemas.chat import AgentAction
-from app.schemas.tool import ToolExecutionResult
+from app.schemas.tool import (
+    TOOL_ARGUMENT_MODELS,
+    ToolExecutionBatch,
+    ToolExecutionResult,
+)
 from app.services.game_service import GameService
 from app.services.shared_knowledge_service import SharedKnowledgeService
 
@@ -25,18 +31,7 @@ class ToolService:
         self.game_service = game_service
         self.shared_knowledge_service = shared_knowledge_service
 
-        self.allowed_tools = {
-            "create_quest",
-            "complete_quest",
-            "add_item",
-            "remove_item",
-            "move_player",
-            "update_relationship",
-            "set_world_flag",
-            "publish_knowledge",
-            "mark_knowledge_known",
-            "resolve_knowledge",
-        }
+        self.allowed_tools = set(TOOL_ARGUMENT_MODELS)
 
     def execute_actions(
         self,
@@ -47,16 +42,40 @@ class ToolService:
         执行多条 AgentAction。
         """
 
-        results = []
+        return self.execute_actions_with_validation(
+            player_id=player_id,
+            actions=actions,
+        ).executed_actions
+
+    def execute_actions_with_validation(
+        self,
+        player_id: str,
+        actions: list[AgentAction],
+    ) -> ToolExecutionBatch:
+        """Validate actions before applying any side effects."""
+
+        validated_actions: list[AgentAction] = []
+        executed_actions: list[ToolExecutionResult] = []
 
         for action in actions:
-            result = self.execute_action(
-                player_id=player_id,
-                action=action,
-            )
-            results.append(result)
+            validated_action, validation_error = self._validate_action(action)
+            if validation_error is not None:
+                executed_actions.append(validation_error)
+                continue
 
-        return results
+            validated_actions.append(validated_action)
+            executed_actions.append(
+                self._execute_validated_action(
+                    player_id=player_id,
+                    action=validated_action,
+                )
+            )
+
+        return ToolExecutionBatch(
+            raw_actions=list(actions),
+            validated_actions=validated_actions,
+            executed_actions=executed_actions,
+        )
 
     def execute_action(
         self,
@@ -69,14 +88,17 @@ class ToolService:
         所有工具都必须在 allowed_tools 白名单里。
         """
 
-        if action.tool not in self.allowed_tools:
-            return ToolExecutionResult(
-                tool=action.tool,
-                success=False,
-                message=f"Tool not allowed: {action.tool}",
-                data={"status": "not_allowed"},
-            )
+        batch = self.execute_actions_with_validation(
+            player_id=player_id,
+            actions=[action],
+        )
+        return batch.executed_actions[0]
 
+    def _execute_validated_action(
+        self,
+        player_id: str,
+        action: AgentAction,
+    ) -> ToolExecutionResult:
         if action.tool == "create_quest":
             return self._create_quest(player_id, action.args)
 
@@ -111,7 +133,62 @@ class ToolService:
             tool=action.tool,
             success=False,
             message=f"Tool not implemented: {action.tool}",
+            data={"status": "invalid_action"},
         )
+
+    def _validate_action(
+        self,
+        action: AgentAction,
+    ) -> tuple[AgentAction, None] | tuple[None, ToolExecutionResult]:
+        if action.tool not in self.allowed_tools:
+            return None, ToolExecutionResult(
+                tool=action.tool,
+                success=False,
+                message=f"Tool not allowed: {action.tool}",
+                data={
+                    "status": "not_allowed",
+                    "allowed_tools": sorted(self.allowed_tools),
+                },
+            )
+
+        args_model = TOOL_ARGUMENT_MODELS.get(action.tool)
+        if args_model is None:
+            return None, ToolExecutionResult(
+                tool=action.tool,
+                success=False,
+                message=f"Tool schema not implemented: {action.tool}",
+                data={"status": "invalid_action"},
+            )
+
+        try:
+            validated_args = args_model.model_validate(action.args)
+        except ValidationError as exc:
+            return None, ToolExecutionResult(
+                tool=action.tool,
+                success=False,
+                message=f"Invalid tool arguments: {action.tool}",
+                data={
+                    "status": "invalid_action",
+                    "errors": self._format_validation_errors(exc),
+                },
+            )
+
+        return AgentAction(
+            tool=action.tool,
+            args=validated_args.model_dump(mode="json", exclude_none=True),
+        ), None
+
+    def _format_validation_errors(self, exc: ValidationError) -> list[dict]:
+        errors = []
+        for error in exc.errors():
+            errors.append(
+                {
+                    "field": ".".join(str(part) for part in error["loc"]),
+                    "message": error["msg"],
+                    "type": error["type"],
+                }
+            )
+        return errors
 
     def _create_quest(self, player_id: str, args: dict) -> ToolExecutionResult:
         quest_id = args.get("quest_id")
