@@ -11,8 +11,8 @@ docker compose up --build
 Services:
 - Go API Gateway: `http://127.0.0.1:8080`
 - Python Agent Runtime: `http://127.0.0.1:8000`
-- Redis: `127.0.0.1:6379`
-- PostgreSQL: `127.0.0.1:5432`
+- Redis: `127.0.0.1:16379`
+- PostgreSQL: `127.0.0.1:15432`
 
 Operational endpoints:
 - `GET http://127.0.0.1:8080/health`
