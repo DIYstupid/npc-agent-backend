@@ -2,6 +2,7 @@ from app.schemas.chat import ChatMessage
 from app.schemas.game import PlayerState
 from app.schemas.memory import LongTermMemory
 from app.schemas.npc import NPCProfile
+from app.schemas.rag import RagDocumentChunk
 from app.schemas.shared_knowledge import KnowledgeEvent
 
 
@@ -49,22 +50,43 @@ def format_shared_knowledge(events: list[KnowledgeEvent]) -> str:
     return "\n".join(lines)
 
 
+def format_rag_chunks(chunks: list[RagDocumentChunk]) -> str:
+    if not chunks:
+        return "None"
+
+    lines = []
+    for chunk in chunks:
+        heading = f"; heading={chunk.heading}" if chunk.heading else ""
+        page = f"; page={chunk.page}" if chunk.page else ""
+        score = f"; score={chunk.score:.3f}" if chunk.score is not None else ""
+        lines.append(
+            f"- source={chunk.source}; doc_id={chunk.doc_id}; "
+            f"chunk_id={chunk.chunk_id}{page}{heading}{score}\n"
+            f"  {chunk.text}"
+        )
+
+    return "\n".join(lines)
+
+
 def build_npc_chat_prompt(
     npc: NPCProfile,
     player_state: PlayerState,
     player_message: str,
     short_term_memory: list[ChatMessage] | None = None,
     long_term_memory: list[LongTermMemory] | None = None,
+    rag_chunks: list[RagDocumentChunk] | None = None,
     shared_knowledge: list[KnowledgeEvent] | None = None,
     summary_memory: str | None = None,
 ) -> str:
     short_term_memory = short_term_memory or []
     long_term_memory = long_term_memory or []
+    rag_chunks = rag_chunks or []
     shared_knowledge = shared_knowledge or []
     summary_memory_text = summary_memory.strip() if summary_memory else "None"
 
     short_memory_text = format_short_term_memory(short_term_memory)
     long_memory_text = format_long_term_memory(long_term_memory)
+    rag_text = format_rag_chunks(rag_chunks)
     shared_knowledge_text = format_shared_knowledge(shared_knowledge)
 
     return f"""
@@ -97,6 +119,11 @@ world_flags: {player_state.world_flags}
 
 [NPC Long-Term Memory]
 {long_memory_text}
+
+[Knowledge Base RAG]
+These chunks come from imported project knowledge documents. Use them only when relevant.
+If you rely on a chunk, keep the answer consistent with its source and chunk_id.
+{rag_text}
 
 [Shared Knowledge]
 This section is the canonical cross-NPC knowledge ledger. Use only facts listed here.
@@ -160,5 +187,6 @@ args: {{"event_id": "knowledge event id"}}
 5. Do not invent items that are not in the player's inventory.
 6. Do not recreate quests already active or completed.
 7. If several NPCs must share one fact, prefer publish_knowledge over isolated long-term memory.
-8. If no persistent change is needed, actions must be an empty list.
+8. Use imported knowledge base chunks only when relevant to the player's message.
+9. If no persistent change is needed, actions must be an empty list.
 """.strip()

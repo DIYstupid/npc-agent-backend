@@ -3,6 +3,7 @@ import unittest
 from app.data.seed import NPCS, PLAYERS
 from app.schemas.chat import ChatMessage
 from app.schemas.memory import LongTermMemory
+from app.schemas.rag import RagDocumentChunk
 from app.schemas.shared_knowledge import KnowledgeEvent
 from app.services.context_builder_service import ContextBuilderService
 from app.services.token_budget_service import TokenBudgetService
@@ -75,6 +76,37 @@ class ContextBuilderServiceTests(unittest.TestCase):
         self.assertEqual(context.selected_shared_knowledge, [event])
         self.assertEqual(context.report.selected_shared_knowledge_events, 1)
         self.assertIn("shared_knowledge", context.report.section_tokens)
+
+    def test_context_includes_rag_chunks(self) -> None:
+        service = ContextBuilderService(TokenBudgetService())
+        chunk = RagDocumentChunk(
+            chunk_id="project_doc:0001",
+            doc_id="project_doc",
+            text="The moonwell opens only when the silver bell rings.",
+            source="docs/project_lore.md",
+            page=2,
+            heading="World Lore",
+            created_at="2026-05-25T00:00:00Z",
+            tags=["lore"],
+            score=0.92,
+        )
+
+        context = service.build(
+            request_id="unit-test-rag",
+            npc=NPCS[0],
+            player_state=PLAYERS[0],
+            player_message="How does the moonwell open?",
+            short_term_memory=[],
+            summary_memory="",
+            long_term_memory=[],
+            rag_chunks=[chunk],
+        )
+
+        self.assertIn("[Knowledge Base RAG]", context.prompt)
+        self.assertIn("moonwell", context.prompt)
+        self.assertEqual(context.selected_rag_chunks, [chunk])
+        self.assertEqual(context.report.selected_rag_chunks, 1)
+        self.assertIn("rag_knowledge", context.report.section_tokens)
 
 
 if __name__ == "__main__":

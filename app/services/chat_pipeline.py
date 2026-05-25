@@ -9,6 +9,7 @@ from app.schemas.chat import AgentAction, ChatResponse
 from app.schemas.game import PlayerState
 from app.schemas.llm import LLMChatResult
 from app.schemas.npc import NPCProfile
+from app.schemas.rag import RagCitation, RagDocumentChunk
 from app.schemas.tool import ToolExecutionResult
 from app.services.context_builder_service import (
     BuiltPromptContext,
@@ -17,6 +18,7 @@ from app.services.context_builder_service import (
 from app.services.long_term_memory_service import LongTermMemoryService
 from app.services.memory_service import MemoryService
 from app.services.reflection_worker import ReflectionJob, ReflectionWorker
+from app.services.rag_knowledge_service import RagKnowledgeService
 from app.services.shared_knowledge_service import SharedKnowledgeService
 from app.services.tool_service import ToolService
 from app.services.trace_service import TraceService
@@ -56,6 +58,7 @@ class ChatPipeline:
         llm_client: BaseLLMClient,
         memory_service: MemoryService,
         long_term_memory_service: LongTermMemoryService,
+        rag_knowledge_service: RagKnowledgeService | None,
         shared_knowledge_service: SharedKnowledgeService | None,
         tool_service: ToolService,
         reflection_worker: ReflectionWorker | None,
@@ -65,6 +68,7 @@ class ChatPipeline:
         self.llm_client = llm_client
         self.memory_service = memory_service
         self.long_term_memory_service = long_term_memory_service
+        self.rag_knowledge_service = rag_knowledge_service
         self.shared_knowledge_service = shared_knowledge_service
         self.tool_service = tool_service
         self.reflection_worker = reflection_worker
@@ -123,6 +127,7 @@ class ChatPipeline:
             player_state=player_state,
             message=message,
         )
+        rag_chunks = self._get_rag_chunks(message)
 
         built_context = self.context_builder_service.build(
             request_id=request_id,
@@ -133,6 +138,7 @@ class ChatPipeline:
             summary_memory=summary_memory,
             long_term_memory=long_term_memory,
             shared_knowledge=shared_knowledge,
+            rag_chunks=rag_chunks,
         )
         self._log_context_built(
             request_id=request_id,
@@ -211,6 +217,9 @@ class ChatPipeline:
             actions=actions,
             executed_actions=executed_actions,
             context_report=pipeline_run.built_context.report,
+            citations=self._build_citations(
+                pipeline_run.built_context.selected_rag_chunks,
+            ),
         )
 
     def _execute_actions(
@@ -303,6 +312,7 @@ class ChatPipeline:
                 executed_actions=executed_actions,
                 selected_short_term_memory=pipeline_run.built_context.selected_short_term_memory,
                 selected_long_term_memory=pipeline_run.built_context.selected_long_term_memory,
+                selected_rag_chunks=pipeline_run.built_context.selected_rag_chunks,
                 selected_shared_knowledge=pipeline_run.built_context.selected_shared_knowledge,
                 summary_memory=pipeline_run.built_context.summary_memory,
                 elapsed_ms=elapsed_ms,
@@ -326,7 +336,8 @@ class ChatPipeline:
         logger.info(
             "chat.context_built request_id=%s npc_id=%s player_id=%s "
             "prompt_tokens=%s saved_tokens=%s short_selected=%s short_trimmed=%s "
-            "long_selected=%s long_trimmed=%s has_summary=%s",
+            "long_selected=%s long_trimmed=%s rag_selected=%s rag_trimmed=%s "
+            "has_summary=%s",
             request_id,
             npc.npc_id,
             player_state.player_id,
@@ -336,6 +347,8 @@ class ChatPipeline:
             built_context.report.trimmed_short_term_messages,
             built_context.report.selected_long_term_memories,
             built_context.report.trimmed_long_term_memories,
+            built_context.report.selected_rag_chunks,
+            built_context.report.trimmed_rag_chunks,
             built_context.report.has_summary_memory,
         )
 
@@ -374,3 +387,32 @@ class ChatPipeline:
             query=message,
             top_k=settings.SHARED_KNOWLEDGE_TOP_K,
         )
+
+    def _get_rag_chunks(self, message: str) -> list[RagDocumentChunk]:
+        if self.rag_knowledge_service is None:
+            return []
+
+        try:
+            return self.rag_knowledge_service.search(
+                query=message,
+                top_k=settings.CONTEXT_RAG_CANDIDATE_TOP_K,
+            )
+        except Exception:
+            logger.exception("chat.rag_search_failed")
+            return []
+
+    def _build_citations(
+        self,
+        chunks: list[RagDocumentChunk],
+    ) -> list[RagCitation]:
+        return [
+            RagCitation(
+                chunk_id=chunk.chunk_id,
+                doc_id=chunk.doc_id,
+                source=chunk.source,
+                page=chunk.page,
+                heading=chunk.heading,
+                score=chunk.score,
+            )
+            for chunk in chunks
+        ]

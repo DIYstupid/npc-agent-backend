@@ -67,6 +67,21 @@ class Settings:
         os.getenv("CONTEXT_LONG_TERM_CANDIDATE_TOP_K", "6")
     )
 
+    # RAG knowledge base
+    RAG_KNOWLEDGE_COLLECTION: str = os.getenv(
+        "RAG_KNOWLEDGE_COLLECTION",
+        "npc_rag_knowledge",
+    )
+    RAG_CHUNK_TOKEN_BUDGET: int = int(
+        os.getenv("RAG_CHUNK_TOKEN_BUDGET", "350")
+    )
+    RAG_CONTEXT_TOKEN_BUDGET: int = int(
+        os.getenv("RAG_CONTEXT_TOKEN_BUDGET", "600")
+    )
+    CONTEXT_RAG_CANDIDATE_TOP_K: int = int(
+        os.getenv("CONTEXT_RAG_CANDIDATE_TOP_K", "6")
+    )
+
     # Observability
     LOG_LEVEL: str = os.getenv("LOG_LEVEL", "INFO")
     TRACE_DB_PATH: str = os.getenv("TRACE_DB_PATH", "app/data/agent_traces.db")

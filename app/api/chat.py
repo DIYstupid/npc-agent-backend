@@ -9,6 +9,7 @@ from app.core.dependencies import (
     chat_service,
     memory_service,
     long_term_memory_service,
+    rag_knowledge_service,
     shared_knowledge_service,
 )
 from app.core.exceptions import NpcNotFoundError, PlayerNotFoundError
@@ -158,6 +159,10 @@ def debug_prompt(npc_id: ResourceIdPath, request: ChatRequest) -> dict:
         query=request.message,
         top_k=3,
     )
+    rag_chunks = rag_knowledge_service.search(
+        query=request.message,
+        top_k=3,
+    )
 
     built_context = context_builder_service.build(
         request_id="debug-prompt",
@@ -168,6 +173,7 @@ def debug_prompt(npc_id: ResourceIdPath, request: ChatRequest) -> dict:
         summary_memory=summary_memory,
         long_term_memory=long_term_memory,
         shared_knowledge=shared_knowledge,
+        rag_chunks=rag_chunks,
     )
 
     return {
@@ -176,4 +182,5 @@ def debug_prompt(npc_id: ResourceIdPath, request: ChatRequest) -> dict:
         "prompt": built_context.prompt,
         "context_report": built_context.report,
         "shared_knowledge": built_context.selected_shared_knowledge,
+        "rag_chunks": built_context.selected_rag_chunks,
     }

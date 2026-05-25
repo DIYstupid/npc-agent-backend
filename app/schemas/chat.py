@@ -1,6 +1,7 @@
 from pydantic import BaseModel, Field
 
 from app.schemas.context import ContextReport
+from app.schemas.rag import RagCitation
 from app.schemas.tool import ToolExecutionResult
 from app.schemas.validation import ChatText, ResourceId
 
@@ -41,6 +42,7 @@ class ChatResponse(BaseModel):
         default_factory=list,
     )
     context_report: ContextReport | None = None
+    citations: list[RagCitation] = Field(default_factory=list)
 
 
 class ChatHistoryResponse(BaseModel):

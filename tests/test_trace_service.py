@@ -3,6 +3,7 @@ import uuid
 from pathlib import Path
 
 from app.schemas.context import ContextReport
+from app.schemas.rag import RagDocumentChunk
 from app.services.trace_service import TraceService
 
 
@@ -37,6 +38,15 @@ class TraceServiceTests(unittest.TestCase):
             executed_actions=[],
             selected_short_term_memory=[],
             selected_long_term_memory=[],
+            selected_rag_chunks=[
+                RagDocumentChunk(
+                    chunk_id="doc:0000",
+                    doc_id="doc",
+                    text="RAG text",
+                    source="docs/rag.md",
+                    created_at="2026-05-25T00:00:00Z",
+                )
+            ],
             summary_memory="",
             elapsed_ms=42,
         )
@@ -47,6 +57,7 @@ class TraceServiceTests(unittest.TestCase):
 
         self.assertIsNotNone(trace)
         self.assertEqual(trace.request_id, "trace_001")
+        self.assertEqual(trace.selected_rag_chunks[0].source, "docs/rag.md")
         self.assertEqual(latest.request_id, "trace_001")
         self.assertEqual(len(summaries), 1)
         self.assertEqual(summaries[0].estimated_prompt_tokens, 120)

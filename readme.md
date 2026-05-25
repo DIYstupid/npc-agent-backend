@@ -9,6 +9,7 @@
 - SSE 聊天流式响应，支持客户端逐字渲染
 - 玩家状态与任务持久化（SQLite）
 - 短期记忆（Redis / 内存 fallback）、摘要记忆、长期向量记忆（Chroma）
+- RAG 文档知识库：Markdown/TXT 导入、chunk、Chroma 检索、关键词过滤、prompt 注入和来源引用
 - `ReflectionWorker` 异步沉淀长期记忆，不阻塞响应
 - 多 NPC 共享情报与一致性（`KnowledgeEvent`，scope/known_by/subject 三段可见性）
 - 长期记忆管理接口
@@ -66,6 +67,8 @@ Python Agent Runtime 暴露完整业务接口：
 - `GET /memory/long-term/search`
 - `PATCH /memory/long-term/{memory_id}`
 - `DELETE /memory/long-term/{memory_id}`
+- `POST /rag/documents`
+- `GET /rag/search`
 - `POST /knowledge/events`
 - `GET /knowledge/events`
 - `GET /knowledge/events/{event_id}`
@@ -157,7 +160,9 @@ curl -N -X POST http://127.0.0.1:8080/chat/blacksmith_001/stream `
 2. 打开 Qt Debug Console 或直接调用 Go `POST /chat/{npc_id}/stream`。
 3. 发送关于狼群、任务或 NPC 情报的问题，观察 SSE `start -> delta* -> final`。
 4. 查看 `GET /debug/traces/latest`，确认 prompt context、actions、executed_actions 和 token budget。
-5. 调用 `GET /game/state/{player_id}` 或知识库接口，验证工具执行和共享情报写入结果。
+5. 调用 `POST /rag/documents` 导入一段 Markdown/TXT 知识，再用聊天问题触发 RAG chunk 进入 prompt。
+6. 调用 `GET /debug/traces/latest`，确认 `selected_rag_chunks` 和回答 `citations`。
+7. 调用 `GET /game/state/{player_id}` 或知识库接口，验证工具执行和共享情报写入结果。
 
 ## 测试
 

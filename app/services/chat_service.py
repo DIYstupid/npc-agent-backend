@@ -12,6 +12,7 @@ from app.services.chat_pipeline import ChatPipeline
 from app.services.context_builder_service import ContextBuilderService
 from app.services.long_term_memory_service import LongTermMemoryService
 from app.services.memory_service import MemoryService
+from app.services.rag_knowledge_service import RagKnowledgeService
 from app.services.reflection_service import ReflectionService
 from app.services.reflection_worker import ReflectionWorker
 from app.services.shared_knowledge_service import SharedKnowledgeService
@@ -48,6 +49,7 @@ class ChatService:
         context_builder_service: ContextBuilderService,
         trace_service: TraceService,
         reflection_worker: ReflectionWorker | None = None,
+        rag_knowledge_service: RagKnowledgeService | None = None,
     ) -> None:
         self.llm_client = get_llm_client()
         self.memory_service = memory_service
@@ -56,6 +58,7 @@ class ChatService:
         self.tool_service = tool_service
         self.reflection_service = reflection_service
         self.reflection_worker = reflection_worker
+        self.rag_knowledge_service = rag_knowledge_service
         self.context_builder_service = context_builder_service
         self.trace_service = trace_service
 
@@ -126,6 +129,7 @@ class ChatService:
             llm_client=self.llm_client,
             memory_service=self.memory_service,
             long_term_memory_service=self.long_term_memory_service,
+            rag_knowledge_service=getattr(self, "rag_knowledge_service", None),
             shared_knowledge_service=getattr(self, "shared_knowledge_service", None),
             tool_service=self.tool_service,
             reflection_worker=getattr(self, "reflection_worker", None),

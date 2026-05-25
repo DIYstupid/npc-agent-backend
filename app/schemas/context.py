@@ -13,6 +13,8 @@ class ContextReport(BaseModel):
     trimmed_short_term_messages: int = 0
     selected_long_term_memories: int = 0
     trimmed_long_term_memories: int = 0
+    selected_rag_chunks: int = 0
+    trimmed_rag_chunks: int = 0
     selected_shared_knowledge_events: int = 0
     trimmed_shared_knowledge_events: int = 0
     has_summary_memory: bool = False

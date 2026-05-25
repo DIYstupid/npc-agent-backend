@@ -1,4 +1,4 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 from app.agent.prompts import build_npc_chat_prompt
 from app.core.config import settings
@@ -7,6 +7,7 @@ from app.schemas.context import ContextReport
 from app.schemas.game import PlayerState
 from app.schemas.memory import LongTermMemory
 from app.schemas.npc import NPCProfile
+from app.schemas.rag import RagDocumentChunk
 from app.schemas.shared_knowledge import KnowledgeEvent
 from app.services.token_budget_service import TokenBudgetService
 
@@ -19,6 +20,7 @@ class BuiltPromptContext:
     selected_long_term_memory: list[LongTermMemory]
     selected_shared_knowledge: list[KnowledgeEvent]
     summary_memory: str
+    selected_rag_chunks: list[RagDocumentChunk] = field(default_factory=list)
 
 
 class ContextBuilderService:
@@ -37,8 +39,10 @@ class ContextBuilderService:
         summary_memory: str,
         long_term_memory: list[LongTermMemory],
         shared_knowledge: list[KnowledgeEvent] | None = None,
+        rag_chunks: list[RagDocumentChunk] | None = None,
     ) -> BuiltPromptContext:
         shared_knowledge = shared_knowledge or []
+        rag_chunks = rag_chunks or []
         selected_short = self._select_latest_messages(
             messages=short_term_memory,
             token_budget=settings.SHORT_TERM_MEMORY_TOKEN_BUDGET,
@@ -50,6 +54,10 @@ class ContextBuilderService:
         selected_knowledge = self._select_shared_knowledge(
             events=shared_knowledge,
             token_budget=settings.LONG_TERM_MEMORY_TOKEN_BUDGET,
+        )
+        selected_rag = self._select_rag_chunks(
+            chunks=rag_chunks,
+            token_budget=settings.RAG_CONTEXT_TOKEN_BUDGET,
         )
         selected_summary = self.token_budget_service.trim_text_to_budget(
             text=summary_memory,
@@ -64,9 +72,17 @@ class ContextBuilderService:
             summary_memory=selected_summary,
             long_term_memory=selected_long,
             shared_knowledge=selected_knowledge,
+            rag_chunks=selected_rag,
         )
 
-        selected_short, selected_summary, selected_long, selected_knowledge, prompt = self._fit_total_budget(
+        (
+            selected_short,
+            selected_summary,
+            selected_long,
+            selected_knowledge,
+            selected_rag,
+            prompt,
+        ) = self._fit_total_budget(
             npc=npc,
             player_state=player_state,
             player_message=player_message,
@@ -74,6 +90,7 @@ class ContextBuilderService:
             selected_summary=selected_summary,
             selected_long=selected_long,
             selected_knowledge=selected_knowledge,
+            selected_rag=selected_rag,
             prompt=prompt,
         )
 
@@ -85,6 +102,7 @@ class ContextBuilderService:
             summary_memory=summary_memory,
             long_term_memory=long_term_memory,
             shared_knowledge=shared_knowledge,
+            rag_chunks=rag_chunks,
         )
         estimated_prompt_tokens = self.token_budget_service.estimate_tokens(prompt)
         raw_prompt_tokens = self.token_budget_service.estimate_tokens(raw_prompt)
@@ -103,6 +121,7 @@ class ContextBuilderService:
                     selected_summary,
                 ),
                 "long_term_memory": self._estimate_memories(selected_long),
+                "rag_knowledge": self._estimate_rag_chunks(selected_rag),
                 "shared_knowledge": self._estimate_shared_knowledge(selected_knowledge),
                 "full_prompt": estimated_prompt_tokens,
             },
@@ -110,6 +129,8 @@ class ContextBuilderService:
             trimmed_short_term_messages=max(0, len(short_term_memory) - len(selected_short)),
             selected_long_term_memories=len(selected_long),
             trimmed_long_term_memories=max(0, len(long_term_memory) - len(selected_long)),
+            selected_rag_chunks=len(selected_rag),
+            trimmed_rag_chunks=max(0, len(rag_chunks) - len(selected_rag)),
             selected_shared_knowledge_events=len(selected_knowledge),
             trimmed_shared_knowledge_events=max(
                 0,
@@ -125,6 +146,7 @@ class ContextBuilderService:
             selected_long_term_memory=selected_long,
             selected_shared_knowledge=selected_knowledge,
             summary_memory=selected_summary,
+            selected_rag_chunks=selected_rag,
         )
 
     def _select_latest_messages(
@@ -223,6 +245,37 @@ class ContextBuilderService:
 
         return selected
 
+    def _select_rag_chunks(
+        self,
+        chunks: list[RagDocumentChunk],
+        token_budget: int,
+    ) -> list[RagDocumentChunk]:
+        selected: list[RagDocumentChunk] = []
+        used_tokens = 0
+
+        ranked_chunks = sorted(
+            chunks,
+            key=lambda chunk: chunk.score or 0.0,
+            reverse=True,
+        )
+
+        for chunk in ranked_chunks:
+            chunk_tokens = self.token_budget_service.estimate_tokens(chunk.text)
+            if selected and used_tokens + chunk_tokens > token_budget:
+                continue
+            if not selected and chunk_tokens > token_budget:
+                trimmed_text = self.token_budget_service.trim_text_to_budget(
+                    chunk.text,
+                    token_budget,
+                )
+                selected.append(chunk.model_copy(update={"text": trimmed_text}))
+                break
+
+            selected.append(chunk)
+            used_tokens += chunk_tokens
+
+        return selected
+
     def _fit_total_budget(
         self,
         npc: NPCProfile,
@@ -232,17 +285,27 @@ class ContextBuilderService:
         selected_summary: str,
         selected_long: list[LongTermMemory],
         selected_knowledge: list[KnowledgeEvent],
+        selected_rag: list[RagDocumentChunk],
         prompt: str,
-    ) -> tuple[list[ChatMessage], str, list[LongTermMemory], list[KnowledgeEvent], str]:
+    ) -> tuple[
+        list[ChatMessage],
+        str,
+        list[LongTermMemory],
+        list[KnowledgeEvent],
+        list[RagDocumentChunk],
+        str,
+    ]:
         while (
             self.token_budget_service.estimate_tokens(prompt)
             > settings.PROMPT_TOKEN_BUDGET
-            and (selected_long or selected_knowledge)
+            and (selected_long or selected_knowledge or selected_rag)
         ):
             if selected_long:
                 selected_long.pop()
-            else:
+            elif selected_knowledge:
                 selected_knowledge.pop()
+            else:
+                selected_rag.pop()
             prompt = self._build_prompt(
                 npc,
                 player_state,
@@ -251,6 +314,7 @@ class ContextBuilderService:
                 selected_summary,
                 selected_long,
                 selected_knowledge,
+                selected_rag,
             )
 
         while (
@@ -267,6 +331,7 @@ class ContextBuilderService:
                 selected_summary,
                 selected_long,
                 selected_knowledge,
+                selected_rag,
             )
 
         if (
@@ -286,9 +351,17 @@ class ContextBuilderService:
                 selected_summary,
                 selected_long,
                 selected_knowledge,
+                selected_rag,
             )
 
-        return selected_short, selected_summary, selected_long, selected_knowledge, prompt
+        return (
+            selected_short,
+            selected_summary,
+            selected_long,
+            selected_knowledge,
+            selected_rag,
+            prompt,
+        )
 
     def _build_prompt(
         self,
@@ -299,6 +372,7 @@ class ContextBuilderService:
         summary_memory: str,
         long_term_memory: list[LongTermMemory],
         shared_knowledge: list[KnowledgeEvent],
+        rag_chunks: list[RagDocumentChunk],
     ) -> str:
         return build_npc_chat_prompt(
             npc=npc,
@@ -308,6 +382,7 @@ class ContextBuilderService:
             summary_memory=summary_memory,
             long_term_memory=long_term_memory,
             shared_knowledge=shared_knowledge,
+            rag_chunks=rag_chunks,
         )
 
     def _estimate_messages(self, messages: list[ChatMessage]) -> int:
@@ -328,4 +403,10 @@ class ContextBuilderService:
         return sum(
             self.token_budget_service.estimate_tokens(event.text)
             for event in events
+        )
+
+    def _estimate_rag_chunks(self, chunks: list[RagDocumentChunk]) -> int:
+        return sum(
+            self.token_budget_service.estimate_tokens(chunk.text)
+            for chunk in chunks
         )

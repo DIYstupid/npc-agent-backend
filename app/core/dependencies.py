@@ -10,6 +10,7 @@ from app.services.context_builder_service import ContextBuilderService
 from app.services.game_service import GameService
 from app.services.long_term_memory_service import LongTermMemoryService
 from app.services.memory_service import MemoryService
+from app.services.rag_knowledge_service import RagKnowledgeService
 from app.services.redis_memory_service import RedisMemoryService
 from app.services.reflection_service import ReflectionService
 from app.services.reflection_worker import ReflectionWorker
@@ -59,6 +60,14 @@ shared_knowledge_service = SharedKnowledgeService(
 )
 
 token_budget_service = TokenBudgetService()
+
+rag_knowledge_service = RagKnowledgeService(
+    persist_dir=settings.CHROMA_PERSIST_DIR,
+    collection_name=settings.RAG_KNOWLEDGE_COLLECTION,
+    embedding_model_name=settings.EMBEDDING_MODEL,
+    token_budget_service=token_budget_service,
+    chunk_token_budget=settings.RAG_CHUNK_TOKEN_BUDGET,
+)
 
 context_builder_service = ContextBuilderService(
     token_budget_service=token_budget_service,
@@ -111,6 +120,7 @@ chat_service = ChatService(
     context_builder_service=context_builder_service,
     trace_service=trace_service,
     reflection_worker=reflection_worker,
+    rag_knowledge_service=rag_knowledge_service,
 )
 
 
@@ -120,6 +130,7 @@ def close_resources() -> None:
         reflection_worker,
         memory_service,
         long_term_memory_service,
+        rag_knowledge_service,
         shared_knowledge_service,
         trace_service,
         quest_agent,

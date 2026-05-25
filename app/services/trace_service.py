@@ -8,6 +8,7 @@ from app.core.config import settings
 from app.schemas.chat import AgentAction, ChatMessage
 from app.schemas.context import ContextReport
 from app.schemas.memory import LongTermMemory
+from app.schemas.rag import RagDocumentChunk
 from app.schemas.shared_knowledge import KnowledgeEvent
 from app.schemas.tool import ToolExecutionResult
 from app.schemas.trace import PromptTraceRecord, PromptTraceSummary
@@ -73,6 +74,7 @@ class TraceService:
         elapsed_ms: int,
         error: str | None = None,
         selected_shared_knowledge: list[KnowledgeEvent] | None = None,
+        selected_rag_chunks: list[RagDocumentChunk] | None = None,
     ) -> PromptTraceRecord:
         record = PromptTraceRecord(
             request_id=request_id,
@@ -88,6 +90,7 @@ class TraceService:
             executed_actions=executed_actions,
             selected_short_term_memory=selected_short_term_memory,
             selected_long_term_memory=selected_long_term_memory,
+            selected_rag_chunks=selected_rag_chunks or [],
             selected_shared_knowledge=selected_shared_knowledge or [],
             summary_memory=summary_memory,
             elapsed_ms=elapsed_ms,
