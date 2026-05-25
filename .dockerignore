@@ -1,0 +1,12 @@
+.git
+.gitignore
+.pytest_cache
+__pycache__/
+*.pyc
+.venv/
+app/data/*.db
+app/data/chroma/
+docs/
+eval/.tmp/
+tests/.tmp/
+clients/

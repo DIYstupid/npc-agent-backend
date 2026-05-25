@@ -46,6 +46,10 @@ func main() {
 			slog.String("addr", cfg.GoAPIAddr),
 			slog.String("python_runtime_base_url", cfg.PythonRuntimeBaseURL),
 			slog.String("redis_addr", cfg.RedisAddr),
+			slog.String("db_addr", cfg.DBAddr),
+			slog.Bool("rate_limit_enabled", cfg.RateLimitEnabled),
+			slog.Int("rate_limit_requests", cfg.RateLimitRequests),
+			slog.Int64("rate_limit_window_seconds", int64(cfg.RateLimitWindow.Seconds())),
 		)
 		errCh <- server.ListenAndServe()
 	}()

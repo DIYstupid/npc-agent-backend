@@ -3,6 +3,7 @@ package httpserver
 import (
 	"io"
 	"log/slog"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -38,6 +39,44 @@ func TestHealthIncludesPythonRuntime(t *testing.T) {
 	}
 	if !strings.Contains(rec.Body.String(), `"reachable":true`) {
 		t.Fatalf("body missing reachable runtime: %s", rec.Body.String())
+	}
+}
+
+func TestHealthIncludesDBReachability(t *testing.T) {
+	runtime := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"status":"ok","service":"npc-agent-backend","version":"0.5.0"}`))
+	}))
+	defer runtime.Close()
+
+	listener, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatalf("Listen: %v", err)
+	}
+	defer listener.Close()
+	go func() {
+		conn, err := listener.Accept()
+		if err == nil {
+			_ = conn.Close()
+		}
+	}()
+
+	cfg := testConfig(runtime.URL)
+	cfg.DBAddr = listener.Addr().String()
+	router := NewRouter(cfg, testLogger(), agentclient.New(runtime.URL, time.Second), nil)
+
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/health", nil)
+	router.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, body = %s", rec.Code, rec.Body.String())
+	}
+	if !strings.Contains(rec.Body.String(), `"db"`) {
+		t.Fatalf("body missing db: %s", rec.Body.String())
+	}
+	if !strings.Contains(rec.Body.String(), `"reachable":true`) {
+		t.Fatalf("body missing reachable dependency: %s", rec.Body.String())
 	}
 }
 
@@ -111,12 +150,56 @@ func TestChatStreamProxyPassesThroughSSE(t *testing.T) {
 	}
 }
 
+func TestMetricsEndpointExportsRequestCounters(t *testing.T) {
+	router := NewRouter(testConfig("http://runtime.local"), testLogger(), nil, nil)
+
+	healthRec := httptest.NewRecorder()
+	healthReq := httptest.NewRequest(http.MethodGet, "/health", nil)
+	router.ServeHTTP(healthRec, healthReq)
+
+	metricsRec := httptest.NewRecorder()
+	metricsReq := httptest.NewRequest(http.MethodGet, "/metrics", nil)
+	router.ServeHTTP(metricsRec, metricsReq)
+
+	if metricsRec.Code != http.StatusOK {
+		t.Fatalf("status = %d, body = %s", metricsRec.Code, metricsRec.Body.String())
+	}
+	body := metricsRec.Body.String()
+	if !strings.Contains(body, "go_api_requests_total") {
+		t.Fatalf("body missing request metric: %s", body)
+	}
+	if !strings.Contains(body, `path="/health"`) {
+		t.Fatalf("body missing health path: %s", body)
+	}
+}
+
+func TestPprofEndpointIsMounted(t *testing.T) {
+	router := NewRouter(testConfig("http://runtime.local"), testLogger(), nil, nil)
+
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/debug/pprof/", nil)
+	router.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, body = %s", rec.Code, rec.Body.String())
+	}
+	if !strings.Contains(rec.Body.String(), "profile") {
+		t.Fatalf("body missing pprof index: %s", rec.Body.String())
+	}
+}
+
 func testConfig(runtimeURL string) config.Config {
 	return config.Config{
 		GoAPIAddr:            ":0",
 		PythonRuntimeBaseURL: runtimeURL,
 		RequestTimeout:       time.Second,
 		RedisAddr:            "",
+		MetricsEnabled:       true,
+		PprofEnabled:         true,
+		RateLimitEnabled:     true,
+		RateLimitRequests:    120,
+		RateLimitWindow:      time.Minute,
+		RateLimitExcluded:    []string{"/health", "/metrics", "/debug/pprof"},
 	}
 }
 

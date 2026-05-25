@@ -1,5 +1,28 @@
 # NPC Agent Backend
 
+## Local Docker Compose
+
+Start the full local backend stack:
+
+```powershell
+docker compose up --build
+```
+
+Services:
+- Go API Gateway: `http://127.0.0.1:8080`
+- Python Agent Runtime: `http://127.0.0.1:8000`
+- Redis: `127.0.0.1:6379`
+- PostgreSQL: `127.0.0.1:5432`
+
+Operational endpoints:
+- `GET http://127.0.0.1:8080/health`
+- `GET http://127.0.0.1:8080/metrics`
+- `GET http://127.0.0.1:8080/debug/pprof/`
+
+The compose stack uses `LLM_PROVIDER=mock` by default so it can boot without a
+real LLM API key. Runtime SQLite, Chroma, and trace data is stored in Docker
+volumes and not committed.
+
 基于 LLM Agent 的游戏 NPC 行为决策、记忆和工具执行后端。
 
 ## 当前能力

@@ -8,8 +8,8 @@
     "tool_call_accuracy": 1.0,
     "rag_hit_rate": 1.0,
     "quest_success_rate": 1.0,
-    "avg_latency_ms": 11.67,
-    "p95_latency_ms": 17,
+    "avg_latency_ms": 12.67,
+    "p95_latency_ms": 18,
     "avg_prompt_tokens": 864.67,
     "total_prompt_tokens": 2594
   },
@@ -18,7 +18,7 @@
       "case_id": "create_silver_ore_quest",
       "passed": true,
       "failures": [],
-      "latency_ms": 17,
+      "latency_ms": 18,
       "expected_tools": [
         "create_quest",
         "update_relationship"
@@ -49,14 +49,14 @@
       },
       "reply": "Bring me silver ore and I will repair the old sword.",
       "token_estimate": 839,
-      "trace_id": "353ee041-05c3-4c02-b1ab-ef239c78765d",
+      "trace_id": "4a7c53ed-4a3c-4f45-bfd9-0fb03e5d8102",
       "error": null
     },
     {
       "case_id": "answer_moonwell_from_rag",
       "passed": true,
       "failures": [],
-      "latency_ms": 9,
+      "latency_ms": 10,
       "expected_tools": [],
       "actual_tools": [],
       "executed_tools": [],
@@ -84,14 +84,14 @@
       },
       "reply": "The moonwell opens only when the silver bell rings.",
       "token_estimate": 908,
-      "trace_id": "812a50ba-d40b-4e77-a3b2-f187427cddad",
+      "trace_id": "7ca75d56-d09a-4aea-a319-32c7f22f2119",
       "error": null
     },
     {
       "case_id": "small_talk_no_tool",
       "passed": true,
       "failures": [],
-      "latency_ms": 9,
+      "latency_ms": 10,
       "expected_tools": [],
       "actual_tools": [],
       "executed_tools": [],
@@ -110,7 +110,7 @@
       },
       "reply": "The village gate is quiet, but the guard is watching the road.",
       "token_estimate": 847,
-      "trace_id": "6f492a5e-bd8a-4421-8c51-cdee0ddb3744",
+      "trace_id": "b3b3a816-0bf3-4766-9d95-348c77ebb40d",
       "error": null
     }
   ],

@@ -12,6 +12,13 @@ request IDs, timeouts, recovery, access logs, health checks, and proxying.
 | `PYTHON_RUNTIME_BASE_URL` | `http://127.0.0.1:8000` | FastAPI runtime base URL. |
 | `REQUEST_TIMEOUT_MS` | `30000` | Request timeout for incoming and proxied calls. |
 | `REDIS_ADDR` | `127.0.0.1:6379` | Redis address used by health checks. Empty disables Redis checks. |
+| `DB_ADDR` | empty | TCP address for DB health checks, for example `127.0.0.1:5432`. Empty disables DB checks. |
+| `METRICS_ENABLED` | `true` | Enables `GET /metrics` in Prometheus text format. |
+| `PPROF_ENABLED` | `true` | Enables Go pprof under `/debug/pprof/`. |
+| `RATE_LIMIT_ENABLED` | `true` | Enables Redis-backed fixed-window rate limiting for proxied routes. |
+| `RATE_LIMIT_REQUESTS` | `120` | Requests allowed per client IP within the rate-limit window. |
+| `RATE_LIMIT_WINDOW_SECONDS` | `60` | Fixed rate-limit window size. |
+| `RATE_LIMIT_EXCLUDED_PATHS` | `/health,/metrics,/debug/pprof` | Comma-separated path prefixes excluded from rate limiting. |
 
 ## Run
 
@@ -25,6 +32,13 @@ Health check:
 
 ```powershell
 curl http://127.0.0.1:8080/health
+```
+
+Metrics and pprof:
+
+```powershell
+curl http://127.0.0.1:8080/metrics
+curl http://127.0.0.1:8080/debug/pprof/
 ```
 
 Chat proxy:

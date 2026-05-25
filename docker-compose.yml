@@ -1,0 +1,95 @@
+services:
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: npc_agent
+      POSTGRES_USER: npc_agent
+      POSTGRES_PASSWORD: npc_agent_dev
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U npc_agent -d npc_agent"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  python-runtime:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    environment:
+      LLM_PROVIDER: mock
+      REDIS_HOST: redis
+      REDIS_PORT: "6379"
+      REDIS_DB: "0"
+      CHROMA_PERSIST_DIR: /data/chroma
+      TRACE_DB_PATH: /data/agent_traces.db
+      LANGGRAPH_CHECKPOINT_DB_PATH: /data/langgraph_checkpoints.db
+      EMBEDDING_LOCAL_FILES_ONLY: "true"
+    ports:
+      - "8000:8000"
+    volumes:
+      - python-data:/data
+    depends_on:
+      redis:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=2).read()",
+        ]
+      interval: 10s
+      timeout: 3s
+      retries: 20
+
+  go-api:
+    build:
+      context: .
+      dockerfile: services/go-api/Dockerfile
+    environment:
+      GO_API_ADDR: :8080
+      PYTHON_RUNTIME_BASE_URL: http://python-runtime:8000
+      REQUEST_TIMEOUT_MS: "30000"
+      REDIS_ADDR: redis:6379
+      DB_ADDR: postgres:5432
+      METRICS_ENABLED: "true"
+      PPROF_ENABLED: "true"
+      RATE_LIMIT_ENABLED: "true"
+      RATE_LIMIT_REQUESTS: "120"
+      RATE_LIMIT_WINDOW_SECONDS: "60"
+      RATE_LIMIT_EXCLUDED_PATHS: /health,/metrics,/debug/pprof
+    ports:
+      - "8080:8080"
+    depends_on:
+      redis:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+      python-runtime:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:8080/health"]
+      interval: 10s
+      timeout: 3s
+      retries: 20
+
+volumes:
+  postgres-data:
+  python-data:

@@ -2,6 +2,7 @@ package handler
 
 import (
 	"context"
+	"net"
 	"net/http"
 	"time"
 
@@ -34,6 +35,7 @@ type healthResponse struct {
 	RequestTimeoutMS int64                     `json:"request_timeout_ms"`
 	PythonRuntime    agentclient.RuntimeHealth `json:"python_runtime"`
 	Redis            dependencyHealth          `json:"redis"`
+	DB               dependencyHealth          `json:"db"`
 }
 
 func NewHealthHandler(cfg config.Config, agent *agentclient.Client, redisClient *redis.Client) *HealthHandler {
@@ -53,9 +55,12 @@ func (h *HealthHandler) Get(c *gin.Context) {
 		pythonRuntime = h.agent.CheckHealth(ctx)
 	}
 	redisStatus := h.checkRedis(ctx)
+	dbStatus := h.checkDB(ctx)
 
 	overallStatus := "ok"
-	if !runtimeHealthy(pythonRuntime) || (redisStatus.Configured && !redisStatus.Reachable) {
+	if !runtimeHealthy(pythonRuntime) ||
+		(redisStatus.Configured && !redisStatus.Reachable) ||
+		(dbStatus.Configured && !dbStatus.Reachable) {
 		overallStatus = "degraded"
 	}
 
@@ -66,6 +71,7 @@ func (h *HealthHandler) Get(c *gin.Context) {
 		RequestTimeoutMS: h.cfg.RequestTimeoutMillis(),
 		PythonRuntime:    pythonRuntime,
 		Redis:            redisStatus,
+		DB:               dbStatus,
 	})
 }
 
@@ -96,6 +102,26 @@ func (h *HealthHandler) checkRedis(ctx context.Context) dependencyHealth {
 		status.Error = err.Error()
 		return status
 	}
+	status.Reachable = true
+	return status
+}
+
+func (h *HealthHandler) checkDB(ctx context.Context) dependencyHealth {
+	status := dependencyHealth{
+		Addr:       h.cfg.DBAddr,
+		Configured: h.cfg.DBAddr != "",
+	}
+	if !status.Configured {
+		return status
+	}
+
+	dialer := net.Dialer{}
+	conn, err := dialer.DialContext(ctx, "tcp", h.cfg.DBAddr)
+	if err != nil {
+		status.Error = err.Error()
+		return status
+	}
+	_ = conn.Close()
 	status.Reachable = true
 	return status
 }
