@@ -27,3 +27,5 @@ eval/.tmp/
 clients/qt-debug-console/out/
 clients/qt-debug-console/build/
 clients/qt-debug-console/.vs/
+
+services/go-api/vendor/

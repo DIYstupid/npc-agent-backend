@@ -2,8 +2,14 @@ FROM golang:1.23-alpine AS build
 
 WORKDIR /src
 
+ARG GOPROXY=https://goproxy.cn,direct
+ENV GOPROXY=${GOPROXY}
+
+COPY services/go-api/go.mod services/go-api/go.sum ./
+RUN go mod download
+
 COPY services/go-api ./
-RUN CGO_ENABLED=0 GOOS=linux go build -mod=vendor -o /out/go-api ./cmd/api
+RUN CGO_ENABLED=0 GOOS=linux go build -o /out/go-api ./cmd/api
 
 FROM alpine:3.20
 
