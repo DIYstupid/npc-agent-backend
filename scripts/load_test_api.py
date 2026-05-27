@@ -10,7 +10,7 @@ from statistics import mean
 from typing import Any
 
 
-DEFAULT_BASE_URL = "http://127.0.0.1:8080"
+DEFAULT_BASE_URL = "http://127.0.0.1:8000"
 DEFAULT_NPC_ID = "blacksmith_001"
 DEFAULT_PLAYER_ID = "player_001"
 DEFAULT_MESSAGE = "Any news about the wolves?"
@@ -242,7 +242,7 @@ def safe_ratio(numerator: int, denominator: int) -> float:
 
 def render_markdown_report(report: dict[str, Any]) -> str:
     lines = [
-        "# Go API Load Test Report",
+        "# FastAPI Load Test Report",
         "",
         f"- Base URL: `{report['base_url']}`",
         f"- Mode: `{report['mode']}`",
@@ -289,7 +289,7 @@ def render_markdown_report(report: dict[str, Any]) -> str:
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description="Run a lightweight load test against Go API chat endpoints.",
+        description="Run a lightweight load test against FastAPI chat endpoints.",
     )
     parser.add_argument("--base-url", default=DEFAULT_BASE_URL)
     parser.add_argument("--npc-id", default=DEFAULT_NPC_ID)

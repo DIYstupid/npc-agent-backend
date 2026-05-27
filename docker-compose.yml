@@ -59,37 +59,6 @@ services:
       timeout: 3s
       retries: 20
 
-  go-api:
-    build:
-      context: .
-      dockerfile: services/go-api/Dockerfile
-    environment:
-      GO_API_ADDR: :8080
-      PYTHON_RUNTIME_BASE_URL: http://python-runtime:8000
-      REQUEST_TIMEOUT_MS: "30000"
-      REDIS_ADDR: redis:6379
-      DB_ADDR: postgres:5432
-      METRICS_ENABLED: "true"
-      PPROF_ENABLED: "true"
-      RATE_LIMIT_ENABLED: "true"
-      RATE_LIMIT_REQUESTS: "120"
-      RATE_LIMIT_WINDOW_SECONDS: "60"
-      RATE_LIMIT_EXCLUDED_PATHS: /health,/metrics,/debug/pprof
-    ports:
-      - "8080:8080"
-    depends_on:
-      redis:
-        condition: service_healthy
-      postgres:
-        condition: service_healthy
-      python-runtime:
-        condition: service_healthy
-    healthcheck:
-      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:8080/health"]
-      interval: 10s
-      timeout: 3s
-      retries: 20
-
 volumes:
   postgres-data:
   python-data:

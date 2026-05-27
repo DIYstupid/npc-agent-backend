@@ -10,4 +10,3 @@ docs/
 eval/.tmp/
 tests/.tmp/
 clients/
-services/go-api/vendor/

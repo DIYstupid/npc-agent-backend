@@ -1,80 +1,134 @@
 # NPC Agent Backend
 
+## 项目简介 / Project Overview
+
+这是一个面向游戏 NPC 的 AI Agent 应用项目，主线是 **Python FastAPI
+Agent 后端 + C++/Qt Debug Console**。项目覆盖 LLM 对话、短期记忆、长期
+向量记忆、RAG 知识检索、工具调用、世界状态更新、Prompt Trace、SSE 流式
+响应和 Qt 调试面板。
+
+当前架构更适合应届生 AI 应用岗位和 C++/Qt 客户端岗位的简历叙事：
+
+- **AI 应用方向**：突出 Agent pipeline、RAG、记忆系统、工具调用、评测、
+  FastAPI 接口和可观测性。
+- **客户端方向**：突出 C++/Qt 桌面调试面板、异步网络请求、SSE 解析、JSON
+  渲染、错误/超时处理和复杂状态展示。
+
+NPC Agent Backend is a game-NPC AI Agent application built around a **Python
+FastAPI runtime and a C++/Qt debug console**. It includes LLM dialogue,
+short-term memory, long-term vector memory, RAG retrieval, tool execution,
+world-state updates, prompt tracing, SSE streaming, and a desktop debugging UI.
+
+The project keeps the story focused on AI application engineering and C++/Qt
+client engineering.
+
+## 工程化结果 / Engineering Proof Points
+
+- Python 测试：`54 tests OK`。
+- 压测脚本：覆盖 `POST /chat/{npc_id}` 和 `POST /chat/{npc_id}/stream`。
+- 最近本地压测：`40` 个 chat 请求和 `40` 个 SSE 请求，并发 `8`；
+  chat `44.75 QPS` / `P95 348 ms`，SSE `32.15 QPS` / `P95 284 ms`，
+  错误率 `0.00%`。
+- Qt Debug Console 默认连接 `http://127.0.0.1:8000`，可用于展示聊天、
+  trace、memory、RAG context 和 actions。
+
+## 架构 / Architecture
+
+```text
+C++/Qt Debug Console / API Client
+        |
+        v
+Python FastAPI Agent Runtime
+  - ChatPipeline / SSE streaming
+  - LangGraph QuestAgent / WorldAgent
+  - Redis or in-memory short-term memory
+  - Chroma-backed long-term memory and RAG
+  - ToolService / WorldActionService
+  - Prompt Trace / Debug API
+```
+
+核心原则：
+
+- Python 负责 Agent、Prompt、RAG、Memory、LLM、状态机和 API 编排。
+- Qt 负责客户端调试体验，包括流式聊天、Trace、Memory、Context、Actions
+  等可视化面板。
+- Docker Compose 只启动 Python Runtime、Redis 和 PostgreSQL，降低部署和
+  面试解释复杂度。
+
+## 当前能力
+
+- FastAPI NPC 聊天接口，同步 + SSE 流式共用 `ChatPipeline`。
+- SSE 聊天流式响应，支持客户端逐字渲染。
+- 玩家状态与任务持久化。
+- 短期记忆，支持 Redis 和内存 fallback。
+- 摘要记忆、长期向量记忆和长期记忆管理接口。
+- RAG 文档知识库：Markdown/TXT 导入、chunk、Chroma 检索、关键词过滤、
+  prompt 注入和来源引用。
+- `ReflectionWorker` 异步沉淀长期记忆，不阻塞主响应。
+- 多 NPC 共享情报与一致性建模。
+- 工具白名单与幂等执行。
+- 世界状态机：`WorldActionService` 作为唯一可修改世界状态的执行层。
+- LangGraph `QuestAgent` / `WorldAgent` 和 checkpoint。
+- 自然语言世界行动入口，解析后复用状态机校验。
+- 应用内限流 `SimpleRateLimitMiddleware`。
+- Prompt Trace 持久化与 Debug API。
+- 可选 `tiktoken` token 预算估算。
+- LLM 支持 `MockLLMClient` 离线调试和 `OpenAICompatibleLLMClient`。
+- C++/Qt Debug Console：后端健康检查、NPC 列表、聊天、SSE、Trace、
+  Memory、Context、Actions 等调试视图。
+
 ## Local Docker Compose
 
-Start the full local backend stack:
+启动本地后端栈：
 
 ```powershell
 docker compose up --build
 ```
 
-Services:
-- Go API Gateway: `http://127.0.0.1:8080`
+服务：
+
 - Python Agent Runtime: `http://127.0.0.1:8000`
 - Redis: `127.0.0.1:16379`
 - PostgreSQL: `127.0.0.1:15432`
 
-Operational endpoints:
-- `GET http://127.0.0.1:8080/health`
-- `GET http://127.0.0.1:8080/metrics`
-- `GET http://127.0.0.1:8080/debug/pprof/`
+健康检查：
 
-The compose stack uses `LLM_PROVIDER=mock` by default so it can boot without a
-real LLM API key. Runtime SQLite, Chroma, and trace data is stored in Docker
-volumes and not committed.
-
-基于 LLM Agent 的游戏 NPC 行为决策、记忆和工具执行后端。
-
-## 当前能力
-
-- Go API Service 网关入口：统一 `request_id`、超时控制、panic recovery、access log、健康检查和 Python Runtime 代理
-- FastAPI NPC 聊天接口（同步 + SSE 流式，二者共用 `ChatPipeline` 三阶段域逻辑）
-- SSE 聊天流式响应，支持客户端逐字渲染
-- 玩家状态与任务持久化（SQLite）
-- 短期记忆（Redis / 内存 fallback）、摘要记忆、长期向量记忆（Chroma）
-- RAG 文档知识库：Markdown/TXT 导入、chunk、Chroma 检索、关键词过滤、prompt 注入和来源引用
-- `ReflectionWorker` 异步沉淀长期记忆，不阻塞响应
-- 多 NPC 共享情报与一致性（`KnowledgeEvent`，scope/known_by/subject 三段可见性）
-- 长期记忆管理接口
-- 工具白名单与幂等执行（9 个工具）
-- 世界状态机：`WorldActionService` 是唯一可改世界状态的执行层
-- LangGraph `QuestAgent` / `WorldAgent`，`AsyncSqliteSaver` checkpoint
-- 自然语言世界行动入口（`POST /world/interactions`），解析后复用状态机校验
-- 接口限流 `SimpleRateLimitMiddleware`（默认 120 req / 60s / per IP）
-- Prompt Trace 持久化与 Debug API（含共享情报与 agent trace）
-- 可选 `tiktoken` token 预算估算
-- LLM：`MockLLMClient` 离线 或 `OpenAICompatibleLLMClient`（任意 OpenAI 兼容 API，含 DeepSeek 等）
-- `unittest` 43 个测试 + 行为评估脚本 + Qt 客户端 4 个 C++ 测试
-
-## 架构
-
-```text
-Qt Debug Console / Future Client
-        |
-        v
-Go API Service
-  - HTTP / SSE 统一入口
-  - request_id / timeout / recover / access log
-  - Python Runtime 和 Redis 健康检查
-        |
-        v
-Python Agent Runtime
-  - FastAPI API
-  - ChatPipeline / LangGraph QuestAgent / WorldAgent
-  - Chroma 长期记忆、Prompt Trace、ToolService、WorldActionService
+```powershell
+curl http://127.0.0.1:8000/health
 ```
 
-当前拆分原则是：Go 负责后端工程化入口和跨服务控制，Python 保留 Agent、Prompt、RAG/Memory、LLM 和状态机业务逻辑。
+Compose 默认使用 `LLM_PROVIDER=mock`，不需要真实 LLM API key 即可启动。运行时
+SQLite、Chroma、trace 数据保存在 Docker volume 或本地数据目录中，不应提交。
+
+## 本地运行 Python 后端
+
+完整 RAG / 长期记忆本地 embedding 能力需要额外安装 `requirements-ml.txt`。
+如果只安装基础依赖，服务仍会启动，RAG 和长期记忆会使用 hash embedding
+fallback。
+
+```powershell
+python -m venv .venv
+.\.venv\Scripts\Activate.ps1
+pip install -r requirements.txt
+pip install -r requirements-ml.txt
+uvicorn app.main:app --reload
+```
+
+离线调试建议在 `.env` 中设置：
+
+```env
+LLM_PROVIDER=mock
+```
+
+## Redis
+
+如果只需要单独启动 Redis：
+
+```powershell
+docker compose -p npc-agent-backend -f docker-compose.redis.yml up -d redis
+```
 
 ## 主要接口
-
-Go API Service 当前对外暴露：
-
-- `GET /health`
-- `POST /chat/{npc_id}`
-- `POST /chat/{npc_id}/stream`
-
-Python Agent Runtime 暴露完整业务接口：
 
 - `GET /health`
 - `GET /npcs`
@@ -109,90 +163,36 @@ Python Agent Runtime 暴露完整业务接口：
 - `GET /debug/traces/latest`
 - `GET /debug/traces/{request_id}`
 
-## Redis
-
-如果需要短期记忆使用 Redis，建议用 Docker Compose 按项目名启动：
-
-```powershell
-docker compose -p npc-agent-backend -f docker-compose.redis.yml up -d redis
-```
-
-这会生成带项目名前缀的容器和网络，便于和其他本地项目隔离。
-
-## 本地运行 Python Runtime
-
-完整 RAG / 长期记忆本地 embedding 能力需要额外安装 `requirements-ml.txt`。
-该文件固定使用 CPU-only PyTorch，避免 Linux Docker 构建拉入 CUDA 运行时依赖。
-如果只安装基础依赖，服务仍会启动，RAG 和长期记忆会使用 hash embedding fallback。
-
-```powershell
-python -m venv .venv
-.\.venv\Scripts\Activate.ps1
-pip install -r requirements.txt
-pip install -r requirements-ml.txt
-uvicorn app.main:app --reload
-```
-
-如果只想离线调试，把 `LLM_PROVIDER=mock` 写进 `.env`。
-
-## 本地运行 Go API Service
-
-先启动 Python Runtime 和 Redis，然后启动 Go 网关：
-
-```powershell
-cd services/go-api
-go mod tidy
-go run ./cmd/api
-```
-
-默认配置：
-
-- Go API：`http://127.0.0.1:8080`
-- Python Runtime：`http://127.0.0.1:8000`
-- Redis：`127.0.0.1:6379`
-
-Go 健康检查：
-
-```powershell
-curl http://127.0.0.1:8080/health
-```
-
-通过 Go 代理同步聊天：
-
-```powershell
-curl -X POST http://127.0.0.1:8080/chat/blacksmith_001 `
-  -H "Content-Type: application/json" `
-  -d "{\"player_id\":\"player_001\",\"message\":\"Any news about the wolves?\"}"
-```
-
-通过 Go 代理 SSE 流式聊天：
-
-```powershell
-curl -N -X POST http://127.0.0.1:8080/chat/blacksmith_001/stream `
-  -H "Content-Type: application/json" `
-  -d "{\"player_id\":\"player_001\",\"message\":\"Any news about the wolves?\"}"
-```
-
-常用环境变量：
-
-- `GO_API_ADDR`
-- `PYTHON_RUNTIME_BASE_URL`
-- `REQUEST_TIMEOUT_MS`
-- `REDIS_ADDR`
-
 ## Demo 场景
 
 推荐演示路径：
 
-1. 启动 Redis、Python Runtime 和 Go API Service。
-2. 打开 Qt Debug Console 或直接调用 Go `POST /chat/{npc_id}/stream`。
-3. 发送关于狼群、任务或 NPC 情报的问题，观察 SSE `start -> delta* -> final`。
-4. 查看 `GET /debug/traces/latest`，确认 prompt context、actions、executed_actions 和 token budget。
-5. 调用 `POST /rag/documents` 导入一段 Markdown/TXT 知识，再用聊天问题触发 RAG chunk 进入 prompt。
-6. 调用 `GET /debug/traces/latest`，确认 `selected_rag_chunks` 和回答 `citations`。
-7. 调用 `GET /game/state/{player_id}` 或知识库接口，验证工具执行和共享情报写入结果。
+1. 启动 Python 后端，或使用 `docker compose up --build`。
+2. 打开 Qt Debug Console，API URL 使用 `http://127.0.0.1:8000`。
+3. 选中 `blacksmith_001`，玩家 ID 使用 `player_001`。
+4. 发送关于狼群、任务或 NPC 情报的问题，观察 SSE 流式回复。
+5. 查看 Qt 里的 Context / Actions / Trace / Memory 面板。
+6. 调用 `POST /rag/documents` 导入一段 Markdown/TXT 知识，再用聊天触发
+   RAG chunk 进入 prompt。
+7. 查看 `GET /debug/traces/latest` 或 Qt Trace 面板，确认
+   `selected_rag_chunks`、actions 和 token budget。
 
-## 测试
+## 截图建议 / Screenshot Checklist
+
+当前只需要 Qt 界面截图即可。建议在本地启动后端和 Qt Debug Console 后截两张：
+
+1. **Qt 主界面流式聊天截图**
+   - API URL 填 `http://127.0.0.1:8000`。
+   - 选中 `blacksmith_001`，玩家 ID 使用 `player_001`。
+   - 发送一句和任务或传闻相关的问题，例如 `Any news about the wolves?`。
+   - 截图里尽量包含：聊天区、API 地址、Context 或 Actions 面板、NPC 回复。
+
+2. **Qt Trace/Memory 调试截图**
+   - 在完成一次聊天后切到 Trace 或 Memory 面板。
+   - 截图里尽量包含：trace 列表、选中的 trace 详情、context report、
+     actions/executed actions，或者长期记忆列表。
+
+## 测试与压测
 
 后端测试：
 
@@ -201,22 +201,18 @@ python -m unittest discover -s tests -v
 python scripts/eval_memory_behavior.py
 ```
 
-Go 网关测试：
+压测 Python FastAPI chat 和 SSE：
 
 ```powershell
-cd services/go-api
-go test ./...
+python scripts/load_test_api.py --mode both --requests 40 --concurrency 8 --timeout-seconds 30
 ```
 
-Go API load test after Docker Compose is healthy:
+压测脚本会生成 QPS、P95 latency、错误率和 SSE 连接统计，并写入：
 
-```powershell
-python scripts/load_test_go_api.py --mode both --requests 40 --concurrency 8 --timeout-seconds 30
-```
+- `eval/load_test_report.json`
+- `eval/load_test_report.md`
 
-The script covers `POST /chat/{npc_id}` and `POST /chat/{npc_id}/stream`,
-then writes QPS, P95 latency, error rate, and SSE concurrency results to
-`eval/load_test_report.json` and `eval/load_test_report.md`.
+压测报告默认不提交，只提交脚本和 README。
 
 SSE 聊天流测试覆盖：
 
@@ -229,16 +225,5 @@ Qt 客户端测试命令见 [clients/qt-debug-console/README.md](clients/qt-debu
 
 ## 文档
 
-- [docs/current_project_record.md](docs/current_project_record.md)：最新项目状态记录（推荐入口）
-- [docs/ai_backend_improvement_plan.md](docs/ai_backend_improvement_plan.md)：AI 应用与后端工程化改造计划
-- [docs/api_contract.md](docs/api_contract.md)：Python Agent Runtime API/SSE 契约
-- [docs/go_python_gateway_notes.md](docs/go_python_gateway_notes.md)：Go + Python 服务拆分面试讲解
-- [docs/project_handoff_overview.md](docs/project_handoff_overview.md)：项目接手总览
-- [docs/interview_qa_full.md](docs/interview_qa_full.md)：完整版面试问答与八股要点
-- [docs/interview_qa_phase1.md](docs/interview_qa_phase1.md)：阶段 1 面试问答
-- [docs/phase1_backend_extensions.md](docs/phase1_backend_extensions.md)
-- [docs/phase3_langgraph_and_qt_ui_plan.md](docs/phase3_langgraph_and_qt_ui_plan.md)
-- [docs/backend_lifecycle.md](docs/backend_lifecycle.md)
-- [AI_NPC_Agent_简历总结与优化计划.md](AI_NPC_Agent_简历总结与优化计划.md)
-- [AI_NPC_Agent_阶段3_简历项目_STAR与学习要点.md](AI_NPC_Agent_阶段3_简历项目_STAR与学习要点.md)
-- [clients/qt-debug-console/README.md](clients/qt-debug-console/README.md)
+- 启动后访问 `http://127.0.0.1:8000/docs` 查看 FastAPI Swagger 文档。
+- [clients/qt-debug-console/README.md](clients/qt-debug-console/README.md)：Qt Debug Console 构建、运行和测试说明。

@@ -28,4 +28,5 @@ clients/qt-debug-console/out/
 clients/qt-debug-console/build/
 clients/qt-debug-console/.vs/
 
-services/go-api/vendor/
+eval/load_test_report.json
+eval/load_test_report.md
