@@ -208,6 +208,16 @@ cd services/go-api
 go test ./...
 ```
 
+Go API load test after Docker Compose is healthy:
+
+```powershell
+python scripts/load_test_go_api.py --mode both --requests 40 --concurrency 8 --timeout-seconds 30
+```
+
+The script covers `POST /chat/{npc_id}` and `POST /chat/{npc_id}/stream`,
+then writes QPS, P95 latency, error rate, and SSE concurrency results to
+`eval/load_test_report.json` and `eval/load_test_report.md`.
+
 SSE 聊天流测试覆盖：
 
 - `ChatService.stream_chat()` 的 `start -> delta* -> final` 事件顺序。
