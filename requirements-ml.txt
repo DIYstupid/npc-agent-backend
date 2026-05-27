@@ -1,0 +1,8 @@
+--extra-index-url https://download.pytorch.org/whl/cpu
+
+# Local embedding runtime. The CPU-only PyTorch wheel avoids CUDA runtime
+# packages in Linux Docker builds.
+torch==2.5.1+cpu
+sentence-transformers==3.3.1
+transformers==4.46.3
+tokenizers==0.20.3

@@ -2,11 +2,16 @@ FROM python:3.12-slim
 
 ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1
+ENV PIP_NO_CACHE_DIR=1
+
+ARG INSTALL_ML=true
 
 WORKDIR /app
 
 COPY requirements.txt /app/requirements.txt
-RUN pip install --no-cache-dir -r /app/requirements.txt
+COPY requirements-ml.txt /app/requirements-ml.txt
+RUN pip install -r /app/requirements.txt \
+    && if [ "$INSTALL_ML" = "true" ]; then pip install -r /app/requirements-ml.txt; fi
 
 COPY app /app/app
 COPY scripts /app/scripts

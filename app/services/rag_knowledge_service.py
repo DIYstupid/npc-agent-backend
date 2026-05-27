@@ -7,7 +7,11 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 
 import chromadb
-from sentence_transformers import SentenceTransformer
+
+try:
+    from sentence_transformers import SentenceTransformer
+except Exception:  # pragma: no cover - exercised when ML deps are omitted.
+    SentenceTransformer = None
 
 from app.core.config import settings
 from app.schemas.rag import RagDocumentChunk, RagDocumentImportResponse
@@ -34,13 +38,35 @@ class RagKnowledgeService:
         token_budget_service: TokenBudgetService | None = None,
         chunk_token_budget: int = 350,
     ) -> None:
-        self.client = chromadb.PersistentClient(path=persist_dir)
-        self.collection = self.client.get_or_create_collection(name=collection_name)
+        self.client, self.collection = self._build_collection(
+            persist_dir=persist_dir,
+            collection_name=collection_name,
+        )
         self.embedding_model_name = embedding_model_name
         self.token_budget_service = token_budget_service or TokenBudgetService()
         self.chunk_token_budget = max(50, chunk_token_budget)
-        self.embedding_model: SentenceTransformer | None = None
+        self.embedding_model: object | None = None
         self.embedding_model_unavailable = False
+
+    def _build_collection(
+        self,
+        persist_dir: str,
+        collection_name: str,
+    ) -> tuple[object, object]:
+        try:
+            client = chromadb.PersistentClient(path=persist_dir)
+            collection = client.get_or_create_collection(name=collection_name)
+            return client, collection
+        except Exception as exc:
+            logger.warning(
+                "rag.chroma_persistent_unavailable "
+                "persist_dir=%s fallback=in_memory error=%s",
+                persist_dir,
+                exc,
+            )
+            client = chromadb.Client()
+            collection = client.get_or_create_collection(name=collection_name)
+            return client, collection
 
     def import_document(
         self,
@@ -417,6 +443,12 @@ class RagKnowledgeService:
     def _encode_text(self, text: str) -> list[float]:
         if not self.embedding_model_unavailable:
             try:
+                if SentenceTransformer is None:
+                    raise RuntimeError(
+                        "sentence-transformers is not installed; "
+                        "install requirements-ml.txt to enable local embeddings"
+                    )
+
                 if self.embedding_model is None:
                     self.embedding_model = SentenceTransformer(
                         self.embedding_model_name,

@@ -121,10 +121,15 @@ docker compose -p npc-agent-backend -f docker-compose.redis.yml up -d redis
 
 ## 本地运行 Python Runtime
 
+完整 RAG / 长期记忆本地 embedding 能力需要额外安装 `requirements-ml.txt`。
+该文件固定使用 CPU-only PyTorch，避免 Linux Docker 构建拉入 CUDA 运行时依赖。
+如果只安装基础依赖，服务仍会启动，RAG 和长期记忆会使用 hash embedding fallback。
+
 ```powershell
 python -m venv .venv
 .\.venv\Scripts\Activate.ps1
 pip install -r requirements.txt
+pip install -r requirements-ml.txt
 uvicorn app.main:app --reload
 ```
 
