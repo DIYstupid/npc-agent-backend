@@ -4,7 +4,6 @@
 **C++/Qt 调试面板**。后端负责 NPC 对话、记忆、RAG、工具调用、世界状态更新
 和调试 Trace；Qt 面板用于查看流式聊天、上下文、Actions、Trace 和 Memory。
 
-项目定位是展示 AI 应用工程能力和 C++/Qt 客户端能力，而不是堆叠多语言服务。
 
 ## 特点
 
@@ -104,7 +103,5 @@ python scripts/load_test_api.py --mode both --requests 40 --concurrency 8 --time
 
 ## 后续计划
 
-- 补充 Qt 主界面和 Trace/Memory 面板截图。
-- 整理面向 AI 应用岗位和 C++/Qt 客户端岗位的简历 bullet。
 - 优化 Qt 调试面板的请求重放、日志查看和本地缓存能力。
 - 增加更多 Agent 行为评测用例，覆盖 RAG 命中、工具调用准确率和状态一致性。
