@@ -10,6 +10,7 @@ from app.api.knowledge import router as knowledge_router
 from app.api.memory import router as memory_router
 from app.api.quest import router as quest_router
 from app.api.rag import router as rag_router
+from app.api.story import router as story_router
 from app.api.world import router as world_router
 from app.core.config import settings
 from app.core.dependencies import close_resources, game_service
@@ -54,6 +55,7 @@ app.include_router(chat_router)
 app.include_router(memory_router)
 app.include_router(rag_router)
 app.include_router(knowledge_router)
+app.include_router(story_router)
 app.include_router(quest_router)
 app.include_router(world_router)
 app.include_router(debug_router)

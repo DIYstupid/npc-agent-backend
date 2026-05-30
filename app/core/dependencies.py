@@ -5,6 +5,7 @@ from app.agents.world_agent import WorldAgent
 from app.core.config import settings
 from app.repositories.player_state_repository import PlayerStateRepository
 from app.repositories.shared_knowledge_repository import SharedKnowledgeRepository
+from app.repositories.story_repository import StoryRepository
 from app.services.chat_service import ChatService
 from app.services.context_builder_service import ContextBuilderService
 from app.services.game_service import GameService
@@ -15,6 +16,7 @@ from app.services.redis_memory_service import RedisMemoryService
 from app.services.reflection_service import ReflectionService
 from app.services.reflection_worker import ReflectionWorker
 from app.services.shared_knowledge_service import SharedKnowledgeService
+from app.services.story_import_service import StoryImportService
 from app.services.token_budget_service import TokenBudgetService
 from app.services.tool_service import ToolService
 from app.services.trace_service import TraceService
@@ -67,6 +69,15 @@ rag_knowledge_service = RagKnowledgeService(
     embedding_model_name=settings.EMBEDDING_MODEL,
     token_budget_service=token_budget_service,
     chunk_token_budget=settings.RAG_CHUNK_TOKEN_BUDGET,
+)
+
+story_repository = StoryRepository(
+    db_path=settings.STORY_DB_PATH,
+)
+
+story_import_service = StoryImportService(
+    repository=story_repository,
+    rag_knowledge_service=rag_knowledge_service,
 )
 
 context_builder_service = ContextBuilderService(
@@ -131,6 +142,7 @@ def close_resources() -> None:
         memory_service,
         long_term_memory_service,
         rag_knowledge_service,
+        story_repository,
         shared_knowledge_service,
         trace_service,
         quest_agent,

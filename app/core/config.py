@@ -98,6 +98,9 @@ class Settings:
     )
     SHARED_KNOWLEDGE_TOP_K: int = int(os.getenv("SHARED_KNOWLEDGE_TOP_K", "5"))
 
+    # Story import
+    STORY_DB_PATH: str = os.getenv("STORY_DB_PATH", "app/data/story.db")
+
     # Rate limiting
     RATE_LIMIT_ENABLED: bool = os.getenv(
         "RATE_LIMIT_ENABLED",

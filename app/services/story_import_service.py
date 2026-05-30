@@ -186,7 +186,11 @@ class StoryMarkdownHeuristicParser:
             for section in sections
             if not section.heading or not self._is_world_heading(section.heading)
         ]
-        return "\n\n".join(non_world_sections).strip() or content.strip()
+        if non_world_sections:
+            return "\n\n".join(non_world_sections).strip()
+        if any(section.heading for section in sections):
+            return ""
+        return content.strip()
 
     def _is_world_heading(self, heading: str) -> bool:
         normalized = heading.strip().lower()
